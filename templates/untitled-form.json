@@ -1,0 +1,66 @@
+{
+  "name": "Untitled form",
+  "fields": [
+    {
+      "id": "text-1790045922429-0",
+      "kind": "text",
+      "label": "Name",
+      "help": "enter your full name",
+      "required": true
+    },
+    {
+      "id": "textarea-1790045923929-1",
+      "kind": "textarea",
+      "label": "Description",
+      "help": "Tell us about yourself",
+      "required": true
+    },
+    {
+      "id": "number-1790045924918-2",
+      "kind": "number",
+      "label": "Age",
+      "minimum": 0,
+      "required": true
+    }
+  ],
+  "schema": {
+    "title": "Untitled form",
+    "type": "object",
+    "properties": {
+      "text17900459224290": {
+        "type": "string",
+        "title": "Name",
+        "description": "enter your full name"
+      },
+      "textarea17900459239291": {
+        "type": "string",
+        "title": "Description",
+        "description": "Tell us about yourself"
+      },
+      "number17900459249182": {
+        "type": "number",
+        "title": "Age",
+        "minimum": 0
+      }
+    },
+    "required": [
+      "text17900459224290",
+      "textarea17900459239291",
+      "number17900459249182"
+    ]
+  },
+  "uiSchema": {
+    "text17900459224290": {
+      "ui:widget": "text"
+    },
+    "textarea17900459239291": {
+      "ui:widget": "textarea"
+    },
+    "number17900459249182": {
+      "ui:widget": "number"
+    }
+  },
+  "id": "untitled-form",
+  "createdAt": "2026-09-22T03:02:14.828Z",
+  "updatedAt": "2026-09-22T03:02:14.828Z"
+}

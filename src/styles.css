@@ -1,0 +1,6 @@
+:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #20212a; background: #f7f7fb; }
+body { margin: 0; background: #f7f7fb; }
+.sidebar { background: #ffffff; border-right: 1px solid #e9e9f1; }
+.topbar { background: #ffffff; border-bottom: 1px solid #e9e9f1; }
+.workspace { align-items: start; }
+.selected-field { border-color: var(--mantine-color-violet-5) !important; box-shadow: 0 0 0 2px var(--mantine-color-violet-1); }
