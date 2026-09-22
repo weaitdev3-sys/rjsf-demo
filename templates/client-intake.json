@@ -13,15 +13,15 @@
     "title": "Client intake",
     "type": "object",
     "properties": {
-      "fullName": { "type": "string", "title": "Full name" },
+      "full_name": { "type": "string", "title": "Full name" },
       "email": { "type": "string", "title": "Email address" },
-      "contactMethod": { "type": "string", "title": "Preferred contact method", "enum": ["Phone", "Email"] }
+      "preferred_contact_method": { "type": "string", "title": "Preferred contact method", "enum": ["Phone", "Email"] }
     },
-    "required": ["fullName", "email"]
+    "required": ["full_name", "email"]
   },
   "uiSchema": {
-    "fullName": { "ui:widget": "text" },
+    "full_name": { "ui:widget": "text" },
     "email": { "ui:widget": "email" },
-    "contactMethod": { "ui:widget": "radio" }
+    "preferred_contact_method": { "ui:widget": "radio" }
   }
 }

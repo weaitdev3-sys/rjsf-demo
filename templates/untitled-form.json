@@ -1,66 +1,104 @@
 {
-  "name": "Untitled form",
+  "name": "Contacts",
   "fields": [
     {
-      "id": "text-1790045922429-0",
-      "kind": "text",
-      "label": "Name",
-      "help": "enter your full name",
-      "required": true
-    },
-    {
-      "id": "textarea-1790045923929-1",
-      "kind": "textarea",
-      "label": "Description",
-      "help": "Tell us about yourself",
-      "required": true
-    },
-    {
-      "id": "number-1790045924918-2",
-      "kind": "number",
-      "label": "Age",
-      "minimum": 0,
-      "required": true
+      "id": "list-1790062757392-0",
+      "kind": "list",
+      "label": "Contacts",
+      "children": [
+        {
+          "id": "text-1790062757392-0",
+          "kind": "text",
+          "label": "Full Name"
+        },
+        {
+          "id": "text-1790063133719-1",
+          "kind": "text",
+          "label": "Phone Number"
+        },
+        {
+          "id": "text-1790063177984-3",
+          "kind": "text",
+          "label": "Relation"
+        },
+        {
+          "id": "checkbox-1790063161693-2",
+          "kind": "checkbox",
+          "label": "Registered Supporter"
+        },
+        {
+          "id": "select-1790063197575-4",
+          "kind": "select",
+          "label": "Role",
+          "options": [
+            "Option 1",
+            "Option 2"
+          ]
+        }
+      ]
     }
   ],
   "schema": {
-    "title": "Untitled form",
+    "title": "Contacts",
     "type": "object",
     "properties": {
-      "text17900459224290": {
-        "type": "string",
-        "title": "Name",
-        "description": "enter your full name"
-      },
-      "textarea17900459239291": {
-        "type": "string",
-        "title": "Description",
-        "description": "Tell us about yourself"
-      },
-      "number17900459249182": {
-        "type": "number",
-        "title": "Age",
-        "minimum": 0
+      "contacts": {
+        "type": "array",
+        "title": "Contacts",
+        "items": {
+          "type": "object",
+          "properties": {
+            "full_name": {
+              "type": "string",
+              "title": "Full Name"
+            },
+            "phone_number": {
+              "type": "string",
+              "title": "Phone Number"
+            },
+            "relation": {
+              "type": "string",
+              "title": "Relation"
+            },
+            "registered_supporter": {
+              "type": "boolean",
+              "title": "Registered Supporter"
+            },
+            "role": {
+              "type": "string",
+              "title": "Role",
+              "enum": [
+                "Option 1",
+                "Option 2"
+              ]
+            }
+          }
+        }
       }
-    },
-    "required": [
-      "text17900459224290",
-      "textarea17900459239291",
-      "number17900459249182"
-    ]
+    }
   },
   "uiSchema": {
-    "text17900459224290": {
-      "ui:widget": "text"
-    },
-    "textarea17900459239291": {
-      "ui:widget": "textarea"
-    },
-    "number17900459249182": {
-      "ui:widget": "number"
+    "contacts": {
+      "items": {
+        "full_name": {
+          "ui:widget": "text"
+        },
+        "phone_number": {
+          "ui:widget": "text"
+        },
+        "relation": {
+          "ui:widget": "text"
+        },
+        "registered_supporter": {
+          "ui:widget": "checkbox"
+        },
+        "role": {
+          "ui:widget": "select"
+        }
+      }
     }
   },
   "id": "untitled-form",
-  "createdAt": "2026-09-22T03:02:14.828Z",
-  "updatedAt": "2026-09-22T03:02:14.828Z"
+  "createdAt": "2026-09-22T08:01:58.289Z",
+  "updatedAt": "2026-09-22T08:01:58.289Z"
 }
