@@ -1,8 +1,108 @@
 import { describe, expect, it } from 'vitest';
-import { buildTemplateDocument } from '../src/domain/templateSchema';
+import { buildFieldKeyMap, buildTemplateDocument, clearVisibilityReferences, evaluateVisibleFields, pruneHiddenValues, validateVisibilityRules } from '../src/domain/templateSchema';
 import { safeTemplateId } from '../server/templateStore';
 
 describe('template document contract', () => {
+  it('evaluates a conditional field and removes its hidden answer', () => {
+    const fields = [
+      { id: 'contact', kind: 'radio' as const, label: 'Contact method', options: ['Phone', 'Email'] },
+      { id: 'phone', kind: 'phone' as const, label: 'Phone number', visibility: { controllerId: 'contact', operator: 'equals' as const, value: 'Phone' } }
+    ];
+
+    expect(evaluateVisibleFields(fields, { contact_method: 'Phone' }).map((field) => field.id)).toEqual(['contact', 'phone']);
+    expect(evaluateVisibleFields(fields, { contact_method: 'Email' }).map((field) => field.id)).toEqual(['contact']);
+    expect(pruneHiddenValues(fields, { contact_method: 'Email', phone_number: '0400 000 000' })).toEqual({ contact_method: 'Email' });
+  });
+
+  it('supports number comparisons and rejects circular visibility rules', () => {
+    const fields = [
+      { id: 'age', kind: 'number' as const, label: 'Age' },
+      { id: 'guardian', kind: 'text' as const, label: 'Guardian name', visibility: { controllerId: 'age', operator: 'lessThan' as const, value: 18 } }
+    ];
+
+    expect(evaluateVisibleFields(fields, { age: 17 }).map((field) => field.id)).toEqual(['age', 'guardian']);
+    expect(evaluateVisibleFields(fields, { age: 18 }).map((field) => field.id)).toEqual(['age']);
+    expect(() => validateVisibilityRules([
+      { id: 'first', kind: 'text' as const, label: 'First', visibility: { controllerId: 'second', operator: 'isNotBlank' as const } },
+      { id: 'second', kind: 'text' as const, label: 'Second', visibility: { controllerId: 'first', operator: 'isNotBlank' as const } }
+    ])).toThrow('cycle');
+  });
+
+  it('prunes a conditional container and its nested answer', () => {
+    const fields = [
+      { id: 'enabled', kind: 'checkbox' as const, label: 'Include details' },
+      {
+        id: 'details', kind: 'container' as const, label: 'Details', visibility: { controllerId: 'enabled', operator: 'isChecked' as const }, children: [
+          { id: 'note', kind: 'text' as const, label: 'Note' }
+        ]
+      }
+    ];
+
+    expect(evaluateVisibleFields(fields, { include_details: false }).map((field) => field.id)).toEqual(['enabled']);
+    expect(pruneHiddenValues(fields, { include_details: false, details: { note: 'private' } })).toEqual({ include_details: false });
+  });
+
+  it('keeps two-column response values when pruning', () => {
+    const fields = [{
+      id: 'columns', kind: 'twoColumn' as const, label: 'Columns',
+      leftChildren: [{ id: 'first', kind: 'text' as const, label: 'First' }],
+      rightChildren: [{ id: 'second', kind: 'text' as const, label: 'Second' }]
+    }];
+
+    expect(pruneHiddenValues(fields, { first: 'Ada', second: 'Lovelace' })).toEqual({ first: 'Ada', second: 'Lovelace' });
+  });
+
+  it('rejects a visibility rule that depends on one of its descendants', () => {
+    expect(() => validateVisibilityRules([{
+      id: 'details', kind: 'container' as const, label: 'Details', visibility: { controllerId: 'name', operator: 'isNotBlank' as const }, children: [
+        { id: 'name', kind: 'text' as const, label: 'Name' }
+      ]
+    }])).toThrow('cycle');
+  });
+
+  it('keeps generated response keys stable when a duplicate-labelled field hides', () => {
+    const fields = [
+      { id: 'enabled', kind: 'checkbox' as const, label: 'Include first' },
+      { id: 'first', kind: 'text' as const, label: 'Answer', visibility: { controllerId: 'enabled', operator: 'isChecked' as const } },
+      { id: 'second', kind: 'text' as const, label: 'Answer' }
+    ];
+    const visibleFields = evaluateVisibleFields(fields, { include_first: false, answer: 'hidden', answer_2: 'visible' });
+
+    expect(pruneHiddenValues(fields, { include_first: false, answer: 'hidden', answer_2: 'visible' })).toEqual({ include_first: false, answer_2: 'visible' });
+    expect(buildTemplateDocument('Intake', visibleFields, buildFieldKeyMap(fields)).schema.properties).toHaveProperty('answer_2');
+  });
+
+  it('reads a two-column controller from its allocated response key', () => {
+    const fields = [
+      { id: 'topFlag', kind: 'checkbox' as const, label: 'Flag' },
+      { id: 'columns', kind: 'twoColumn' as const, label: 'Columns', leftChildren: [], rightChildren: [{ id: 'columnFlag', kind: 'checkbox' as const, label: 'Flag' }] },
+      { id: 'note', kind: 'text' as const, label: 'Note', visibility: { controllerId: 'columnFlag', operator: 'isChecked' as const } }
+    ];
+
+    expect(evaluateVisibleFields(fields, { flag: false, flag_2: true }).map((field) => field.id)).toContain('note');
+  });
+
+  it('preserves legacy two-column duplicate keys in the fill schema and pruned response', () => {
+    const fields = [
+      { id: 'top', kind: 'text' as const, label: 'Name' },
+      { id: 'columns', kind: 'twoColumn' as const, label: 'Columns', leftChildren: [{ id: 'left', kind: 'text' as const, label: 'Name' }], rightChildren: [{ id: 'right', kind: 'text' as const, label: 'Name' }] }
+    ];
+    const legacyDocument = buildTemplateDocument('Intake', fields);
+    const fillDocument = buildTemplateDocument('Intake', evaluateVisibleFields(fields, {}), buildFieldKeyMap(fields));
+
+    expect(legacyDocument.schema.properties).toEqual(fillDocument.schema.properties);
+    expect(pruneHiddenValues(fields, { name: 'Top', name_2: 'Left', name_2_2: 'Right' })).toEqual({ name: 'Top', name_2: 'Left', name_2_2: 'Right' });
+  });
+
+  it('clears rules that reference any deleted layout descendant', () => {
+    const fields = [
+      { id: 'details', kind: 'container' as const, label: 'Details', children: [{ id: 'controller', kind: 'checkbox' as const, label: 'Enabled' }] },
+      { id: 'note', kind: 'text' as const, label: 'Note', visibility: { controllerId: 'controller', operator: 'isChecked' as const } }
+    ];
+
+    expect(clearVisibilityReferences(fields, ['details', 'controller'])[1].visibility).toBeUndefined();
+  });
+
   it('converts ordered editable fields into an RJSF schema and uiSchema', () => {
     const template = buildTemplateDocument('Client intake', [
       { id: 'text-1728000000000-0', kind: 'text', label: 'First name', required: true, help: 'As shown on ID' },

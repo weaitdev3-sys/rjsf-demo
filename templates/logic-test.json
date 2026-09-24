@@ -1,0 +1,44 @@
+{
+  "name": "Logic Test",
+  "fields": [
+    {
+      "id": "checkbox-1790207847923-0",
+      "kind": "checkbox",
+      "label": "I want a textbox"
+    },
+    {
+      "id": "text-1790207880038-1",
+      "kind": "text",
+      "label": "Untitled Text field",
+      "visibility": {
+        "controllerId": "checkbox-1790207847923-0",
+        "operator": "isChecked"
+      }
+    }
+  ],
+  "schema": {
+    "title": "Logic Test",
+    "type": "object",
+    "properties": {
+      "i_want_a_textbox": {
+        "type": "boolean",
+        "title": "I want a textbox"
+      },
+      "untitled_text_field": {
+        "type": "string",
+        "title": "Untitled Text field"
+      }
+    }
+  },
+  "uiSchema": {
+    "i_want_a_textbox": {
+      "ui:widget": "checkbox"
+    },
+    "untitled_text_field": {
+      "ui:widget": "text"
+    }
+  },
+  "id": "logic-test",
+  "createdAt": "2026-09-23T23:58:22.280Z",
+  "updatedAt": "2026-09-23T23:58:22.280Z"
+}

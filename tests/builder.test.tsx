@@ -24,6 +24,21 @@ describe('form builder', () => {
     expect(screen.getByText('Preferred name')).toBeInTheDocument();
   });
 
+  it('configures when a field is shown from another field value', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add radio' }));
+    fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Contact method' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add phone' }));
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Visibility' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Show when…' }));
+    expect(screen.getByRole('combobox', { name: 'Show when field' })).toHaveValue('Contact method');
+
+    expect(screen.getByRole('combobox', { name: 'Operator' })).toBeInTheDocument();
+  });
+
   it('suffixes a renamed field label when its generated key collides with a sibling', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
