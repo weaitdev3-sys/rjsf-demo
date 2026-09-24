@@ -1,8 +1,57 @@
 import { describe, expect, it } from 'vitest';
-import { buildFieldKeyMap, buildTemplateDocument, clearVisibilityReferences, evaluateVisibleFields, pruneHiddenValues, validateVisibilityRules } from '../src/domain/templateSchema';
+import { buildFieldKeyMap, buildTemplateDocument, clearVisibilityReferences, evaluateVisibleFields, pruneHiddenValues, validateVisibilityRules, type EditableField } from '../src/domain/templateSchema';
 import { safeTemplateId } from '../server/templateStore';
 
 describe('template document contract', () => {
+  it('evaluates AND and OR visibility groups while retaining legacy rules', () => {
+    const fields: EditableField[] = [
+      { id: 'contact', kind: 'radio', label: 'Contact', options: ['Phone', 'Email'] },
+      { id: 'age', kind: 'number', label: 'Age' },
+      { id: 'legacy', kind: 'text', label: 'Legacy', visibility: { controllerId: 'contact', operator: 'equals', value: 'Phone' } },
+      { id: 'all', kind: 'text', label: 'All', visibility: { combinator: 'and', clauses: [{ kind: 'field', controllerId: 'contact', operator: 'equals', value: 'Phone' }, { kind: 'field', controllerId: 'age', operator: 'greaterThan', value: 17 }] } },
+      { id: 'any', kind: 'text', label: 'Any', visibility: { combinator: 'or', clauses: [{ kind: 'field', controllerId: 'contact', operator: 'equals', value: 'Email' }, { kind: 'field', controllerId: 'age', operator: 'lessThan', value: 18 }] } }
+    ];
+
+    expect(evaluateVisibleFields(fields, { contact: 'Phone', age: 18 }).map((field) => field.id)).toEqual(['contact', 'age', 'legacy', 'all']);
+    expect(evaluateVisibleFields(fields, { contact: 'Email', age: 17 }).map((field) => field.id)).toEqual(['contact', 'age', 'any']);
+  });
+
+  it('evaluates nested visibility groups with operators between conditions', () => {
+    const fields: EditableField[] = [
+      { id: 'x', kind: 'checkbox', label: 'X' }, { id: 'y', kind: 'checkbox', label: 'Y' }, { id: 'z', kind: 'checkbox', label: 'Z' },
+      { id: 'target', kind: 'text', label: 'Target', visibility: { kind: 'group', operands: [{ kind: 'group', operands: [{ kind: 'field', controllerId: 'x', operator: 'isChecked' }, { kind: 'field', controllerId: 'y', operator: 'isChecked' }], operators: ['and'] }, { kind: 'field', controllerId: 'z', operator: 'isChecked' }], operators: ['or'] } }
+    ];
+
+    expect(evaluateVisibleFields(fields, { x: true, y: true, z: false }).map((field) => field.id)).toContain('target');
+    expect(evaluateVisibleFields(fields, { x: true, y: false, z: true }).map((field) => field.id)).toContain('target');
+    expect(evaluateVisibleFields(fields, { x: true, y: false, z: false }).map((field) => field.id)).not.toContain('target');
+  });
+
+  it('negates individual conditions and nested groups', () => {
+    const fields = [
+      { id: 'x', kind: 'checkbox', label: 'X' }, { id: 'y', kind: 'checkbox', label: 'Y' },
+      { id: 'notX', kind: 'text', label: 'Not X', visibility: { kind: 'group', operands: [{ kind: 'field', controllerId: 'x', operator: 'isChecked', not: true }], operators: [] } },
+      { id: 'notBoth', kind: 'text', label: 'Not both', visibility: { kind: 'group', operands: [{ kind: 'group', not: true, operands: [{ kind: 'field', controllerId: 'x', operator: 'isChecked' }, { kind: 'field', controllerId: 'y', operator: 'isChecked' }], operators: ['and'] }], operators: [] } }
+    ] as unknown as EditableField[];
+
+    expect(evaluateVisibleFields(fields, { x: false, y: true }).map((field) => field.id)).toContain('notX');
+    expect(evaluateVisibleFields(fields, { x: true, y: false }).map((field) => field.id)).toContain('notBoth');
+    expect(evaluateVisibleFields(fields, { x: true, y: true }).map((field) => field.id)).not.toContain('notBoth');
+  });
+
+  it('evaluates ANY and ALL list-row condition groups and treats empty lists as false', () => {
+    const fields: EditableField[] = [
+      { id: 'appointments', kind: 'list', label: 'Appointments', children: [{ id: 'status', kind: 'select', label: 'Status', options: ['Open', 'Closed'] }, { id: 'amount', kind: 'number', label: 'Amount' }] },
+      { id: 'anyOpen', kind: 'text', label: 'Any open', visibility: { combinator: 'and', clauses: [{ kind: 'list', listId: 'appointments', quantifier: 'any', conditions: { combinator: 'and', clauses: [{ fieldId: 'status', operator: 'equals', value: 'Open' }, { fieldId: 'amount', operator: 'greaterThan', value: 10 }] } }] } },
+      { id: 'allClosed', kind: 'text', label: 'All closed', visibility: { combinator: 'and', clauses: [{ kind: 'list', listId: 'appointments', quantifier: 'all', conditions: { combinator: 'or', clauses: [{ fieldId: 'status', operator: 'equals', value: 'Closed' }, { fieldId: 'amount', operator: 'lessThan', value: 1 }] } }] } },
+      { id: 'noOpen', kind: 'text', label: 'No open', visibility: { kind: 'group', operands: [{ kind: 'list', not: true, listId: 'appointments', quantifier: 'any', conditions: { combinator: 'and', clauses: [{ fieldId: 'status', operator: 'equals', value: 'Open' }] } }], operators: [] } }
+    ];
+
+    expect(evaluateVisibleFields(fields, { appointments: [{ status: 'Open', amount: 11 }, { status: 'Closed', amount: 3 }] }).map((field) => field.id)).toEqual(['appointments', 'anyOpen']);
+    expect(evaluateVisibleFields(fields, { appointments: [{ status: 'Closed', amount: 3 }] }).map((field) => field.id)).toEqual(['appointments', 'allClosed', 'noOpen']);
+    expect(evaluateVisibleFields(fields, { appointments: [] }).map((field) => field.id)).toEqual(['appointments', 'noOpen']);
+  });
+
   it('evaluates a conditional field and removes its hidden answer', () => {
     const fields = [
       { id: 'contact', kind: 'radio' as const, label: 'Contact method', options: ['Phone', 'Email'] },

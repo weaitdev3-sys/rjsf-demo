@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/App';
 
@@ -32,11 +32,42 @@ describe('form builder', () => {
     fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Contact method' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add phone' }));
 
-    fireEvent.click(screen.getByRole('combobox', { name: 'Visibility' }));
-    fireEvent.click(screen.getByRole('option', { name: 'Show when…' }));
-    expect(screen.getByRole('combobox', { name: 'Show when field' })).toHaveValue('Contact method');
+    fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
+    await screen.findByRole('dialog');
+    expect(screen.getByRole('heading', { name: 'Conditional logic' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add nested group' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Apply conditional logic' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Negate this condition')).not.toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'Add nested group' }));
+    expect(screen.getByText('Nested group')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Connector 1' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Apply conditional logic' }));
+    expect(screen.getByRole('button', { name: 'Edit conditional logic' })).toBeInTheDocument();
+  });
 
-    expect(screen.getByRole('combobox', { name: 'Operator' })).toBeInTheDocument();
+  it('offers ANY and ALL list-row visibility conditions', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add list input' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
+    await screen.findByRole('dialog');
+    expect(screen.getByRole('heading', { name: 'Conditional logic' })).toBeInTheDocument();
+  });
+
+  it('opens conditional logic after another field saves a list condition', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add list input' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Apply conditional logic' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Conditional logic' })).toBeInTheDocument();
   });
 
   it('suffixes a renamed field label when its generated key collides with a sibling', async () => {
@@ -116,5 +147,63 @@ describe('form builder', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Fill form' }));
 
     expect(screen.getByText('Text block')).toBeInTheDocument();
+  });
+
+  it('keeps static layout blocks between their surrounding response fields in fill mode', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add text field' }));
+    fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Before layout' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add text' }));
+    fireEvent.change(screen.getByLabelText('Text content'), { target: { value: 'Inline guidance' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add heading' }));
+    fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Middle heading' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
+    fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'After layout' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Fill form' }));
+
+    const before = screen.getByLabelText('Before layout');
+    const guidance = screen.getByText('Inline guidance');
+    const heading = screen.getByRole('heading', { name: 'Middle heading' });
+    const after = screen.getByLabelText('After layout');
+    expect(before.compareDocumentPosition(guidance) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(guidance.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(heading.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('keeps two-column values and validates the complete response before saving', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string, options?: RequestInit) => ({
+      ok: true,
+      json: async () => url === '/api/templates' && options?.method === 'POST' ? { id: 'template-1', name: 'Layout form' } : []
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText('Template name'), { target: { value: 'Layout form' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add two-column' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add text field to left column' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add email to right column' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
+    fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Required after columns' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Optional' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
+    await screen.findByText('Saved “Layout form”');
+    fireEvent.click(screen.getByRole('button', { name: 'Fill form' }));
+
+    const left = screen.getByLabelText('Untitled Text field');
+    const right = screen.getByLabelText('Untitled Email');
+    fireEvent.change(left, { target: { value: 'Left value' } });
+    fireEvent.change(right, { target: { value: 'right@example.test' } });
+    expect(left).toHaveValue('Left value');
+    expect(right).toHaveValue('right@example.test');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save response' }));
+    expect(screen.getByText('Complete the required fields before saving.')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/submissions', expect.anything());
+
+    fireEvent.change(screen.getByLabelText(/Required after columns/), { target: { value: 'Done' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save response' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/submissions', expect.objectContaining({ method: 'POST', body: expect.stringContaining('right@example.test') })));
   });
 });

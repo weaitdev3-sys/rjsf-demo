@@ -2,17 +2,146 @@
   "name": "Logic Test",
   "fields": [
     {
-      "id": "checkbox-1790207847923-0",
+      "id": "checkbox-1790219477212-0",
       "kind": "checkbox",
-      "label": "I want a textbox"
+      "label": "Checkbox A"
     },
     {
-      "id": "text-1790207880038-1",
-      "kind": "text",
-      "label": "Untitled Text field",
+      "id": "checkbox-1790219495677-1",
+      "kind": "checkbox",
+      "label": "Checkbox B"
+    },
+    {
+      "id": "textLayout-1790219510535-2",
+      "kind": "textLayout",
+      "label": "Untitled Text",
+      "content": "If A",
       "visibility": {
-        "controllerId": "checkbox-1790207847923-0",
-        "operator": "isChecked"
+        "kind": "group",
+        "operands": [
+          {
+            "kind": "field",
+            "controllerId": "checkbox-1790219477212-0",
+            "operator": "isChecked"
+          }
+        ],
+        "operators": []
+      }
+    },
+    {
+      "id": "textLayout-1790219520870-3",
+      "kind": "textLayout",
+      "label": "Untitled Text",
+      "content": "If B",
+      "visibility": {
+        "kind": "group",
+        "operands": [
+          {
+            "kind": "field",
+            "controllerId": "checkbox-1790219495677-1",
+            "operator": "isChecked"
+          }
+        ],
+        "operators": []
+      }
+    },
+    {
+      "id": "textLayout-1790219525760-4",
+      "kind": "textLayout",
+      "label": "Untitled Text",
+      "content": "If A OR B",
+      "visibility": {
+        "kind": "group",
+        "operands": [
+          {
+            "kind": "field",
+            "controllerId": "checkbox-1790219477212-0",
+            "operator": "isChecked"
+          },
+          {
+            "kind": "field",
+            "controllerId": "checkbox-1790219495677-1",
+            "operator": "isChecked"
+          }
+        ],
+        "operators": [
+          "or"
+        ]
+      }
+    },
+    {
+      "id": "textLayout-1790219535128-5",
+      "kind": "textLayout",
+      "label": "Untitled Text",
+      "content": "If A AND B",
+      "visibility": {
+        "kind": "group",
+        "operands": [
+          {
+            "kind": "field",
+            "controllerId": "checkbox-1790219477212-0",
+            "operator": "isChecked"
+          },
+          {
+            "kind": "field",
+            "controllerId": "checkbox-1790219495677-1",
+            "operator": "isChecked"
+          }
+        ],
+        "operators": [
+          "and"
+        ]
+      }
+    },
+    {
+      "id": "textLayout-1790219542702-6",
+      "kind": "textLayout",
+      "label": "Untitled Text",
+      "content": "If A XOR B",
+      "visibility": {
+        "kind": "group",
+        "operands": [
+          {
+            "kind": "group",
+            "operands": [
+              {
+                "kind": "field",
+                "controllerId": "checkbox-1790219477212-0",
+                "operator": "isChecked"
+              },
+              {
+                "kind": "field",
+                "controllerId": "checkbox-1790219477212-0",
+                "operator": "isChecked"
+              }
+            ],
+            "operators": [
+              "or"
+            ]
+          },
+          {
+            "kind": "group",
+            "operands": [
+              {
+                "kind": "field",
+                "controllerId": "checkbox-1790219477212-0",
+                "operator": "isChecked"
+              },
+              {
+                "kind": "field",
+                "controllerId": "checkbox-1790219495677-1",
+                "operator": "isChecked"
+              }
+            ],
+            "operators": [
+              "and"
+            ],
+            "not": true
+          }
+        ],
+        "operators": [
+          "and"
+        ]
       }
     }
   ],
@@ -20,25 +149,25 @@
     "title": "Logic Test",
     "type": "object",
     "properties": {
-      "i_want_a_textbox": {
+      "checkbox_a": {
         "type": "boolean",
-        "title": "I want a textbox"
+        "title": "Checkbox A"
       },
-      "untitled_text_field": {
-        "type": "string",
-        "title": "Untitled Text field"
+      "checkbox_b": {
+        "type": "boolean",
+        "title": "Checkbox B"
       }
     }
   },
   "uiSchema": {
-    "i_want_a_textbox": {
+    "checkbox_a": {
       "ui:widget": "checkbox"
     },
-    "untitled_text_field": {
-      "ui:widget": "text"
+    "checkbox_b": {
+      "ui:widget": "checkbox"
     }
   },
   "id": "logic-test",
-  "createdAt": "2026-09-23T23:58:22.280Z",
-  "updatedAt": "2026-09-23T23:58:22.280Z"
+  "createdAt": "2026-09-24T03:14:05.038Z",
+  "updatedAt": "2026-09-24T03:14:05.038Z"
 }

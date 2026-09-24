@@ -28,11 +28,37 @@ export type VisibilityOperator =
   | 'isChecked'
   | 'isUnchecked';
 
-export type VisibilityRule = {
+export type LegacyVisibilityRule = {
   controllerId: string;
   operator: VisibilityOperator;
   value?: string | number;
 };
+
+export type FieldVisibilityClause = LegacyVisibilityRule & { kind: 'field'; not?: boolean };
+
+export type ListRowVisibilityClause = {
+  fieldId: string;
+  operator: VisibilityOperator;
+  value?: string | number;
+};
+
+export type VisibilityGroup<TClause = VisibilityClause> = {
+  combinator: 'and' | 'or';
+  clauses: TClause[];
+};
+
+export type ListVisibilityClause = {
+  kind: 'list';
+  not?: boolean;
+  listId: string;
+  quantifier: 'any' | 'all';
+  conditions: VisibilityGroup<ListRowVisibilityClause>;
+};
+
+export type VisibilityClause = FieldVisibilityClause | ListVisibilityClause;
+export type VisibilityExpressionGroup = { kind: 'group'; not?: boolean; operands: VisibilityExpression[]; operators: ('and' | 'or')[] };
+export type VisibilityExpression = VisibilityClause | VisibilityExpressionGroup;
+export type VisibilityRule = LegacyVisibilityRule | VisibilityGroup | VisibilityExpressionGroup;
 
 export type EditableField = {
   id: string;
@@ -142,7 +168,7 @@ export function clearVisibilityReferences(fields: EditableField[], removedIds: I
   const removed = new Set(removedIds);
   return fields.map((field) => ({
     ...field,
-    ...(removed.has(field.visibility?.controllerId ?? '') ? { visibility: undefined } : {}),
+    ...(visibilityReferences(field.visibility).some((id) => removed.has(id)) ? { visibility: undefined } : {}),
     ...(field.children ? { children: clearVisibilityReferences(field.children, removed) } : {}),
     ...(field.leftChildren ? { leftChildren: clearVisibilityReferences(field.leftChildren, removed) } : {}),
     ...(field.rightChildren ? { rightChildren: clearVisibilityReferences(field.rightChildren, removed) } : {})
@@ -160,9 +186,26 @@ const supportedOperators = (kind: FieldKind): VisibilityOperator[] => {
   return comparisonOperators;
 };
 
+const isLegacyVisibilityRule = (rule: VisibilityRule): rule is LegacyVisibilityRule => 'controllerId' in rule;
+const isExpressionGroup = (rule: VisibilityRule): rule is VisibilityExpressionGroup => 'operands' in rule;
+const normalizeVisibilityRule = (rule: VisibilityRule): VisibilityExpressionGroup => {
+  if (isLegacyVisibilityRule(rule)) return { kind: 'group', operands: [{ kind: 'field', ...rule }], operators: [] };
+  if (isExpressionGroup(rule)) return rule;
+  return { kind: 'group', operands: rule.clauses, operators: rule.clauses.slice(1).map(() => rule.combinator) };
+};
+const visibilityReferences = (rule: VisibilityRule | undefined): string[] => {
+  if (!rule) return [];
+  if (isLegacyVisibilityRule(rule)) return [rule.controllerId];
+  const expressions = isExpressionGroup(rule) ? rule.operands : rule.clauses;
+  return expressions.flatMap((clause) => clause.kind === 'group' ? visibilityReferences(clause)
+    : clause.kind === 'field'
+    ? [clause.controllerId]
+    : [clause.listId, ...clause.conditions.clauses.map((condition) => condition.fieldId)]);
+};
+
 const isBlank = (value: unknown) => value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
 
-const ruleMatches = (rule: VisibilityRule, value: unknown) => {
+const ruleMatches = (rule: LegacyVisibilityRule | ListRowVisibilityClause, value: unknown) => {
   switch (rule.operator) {
     case 'isBlank': return isBlank(value);
     case 'isNotBlank': return !isBlank(value);
@@ -189,12 +232,33 @@ export function validateVisibilityRules(fields: EditableField[]) {
     const rule = reference.field.visibility;
     if (!rule) continue;
     if (reference.listItem) throw new Error('Visibility rules are not supported for list-item fields');
-    const controller = references.get(rule.controllerId);
-    if (!controller || controller.listItem || !controllerKinds.includes(controller.field.kind)) throw new Error('Visibility rule controller must be a non-list input field');
-    if (id === rule.controllerId) throw new Error('Visibility rule cannot depend on itself');
-    if (!supportedOperators(controller.field.kind).includes(rule.operator)) throw new Error('Visibility rule operator is not compatible with its controller');
-    if (['equals', 'notEquals', 'greaterThan', 'lessThan'].includes(rule.operator) && rule.value === undefined) throw new Error('Visibility rule requires a comparison value');
-    addEdge(id, rule.controllerId);
+    const group = normalizeVisibilityRule(rule);
+    const validateGroup = (current: VisibilityExpressionGroup) => {
+      if (!current.operands.length || current.operators.length !== Math.max(0, current.operands.length - 1)) throw new Error('Visibility group must contain linked conditions');
+      for (const clause of current.operands) {
+      if (clause.kind === 'group') { validateGroup(clause); continue; }
+      if (clause.kind === 'field') {
+        const controller = references.get(clause.controllerId);
+        if (!controller || controller.listItem || !controllerKinds.includes(controller.field.kind)) throw new Error('Visibility rule controller must be a non-list input field');
+        if (id === clause.controllerId) throw new Error('Visibility rule cannot depend on itself');
+        if (!supportedOperators(controller.field.kind).includes(clause.operator)) throw new Error('Visibility rule operator is not compatible with its controller');
+        if (['equals', 'notEquals', 'greaterThan', 'lessThan'].includes(clause.operator) && clause.value === undefined) throw new Error('Visibility rule requires a comparison value');
+        addEdge(id, clause.controllerId);
+        continue;
+      }
+      const list = references.get(clause.listId);
+      if (!list || list.listItem || list.field.kind !== 'list') throw new Error('List visibility rule must reference a repeatable list');
+      if (!clause.conditions.clauses.length) throw new Error('List visibility rule requires at least one row condition');
+      for (const condition of clause.conditions.clauses) {
+        const child = references.get(condition.fieldId);
+        if (!child || !child.listItem || child.parentId !== clause.listId || !controllerKinds.includes(child.field.kind)) throw new Error('List visibility rule must reference a direct list-item field');
+        if (!supportedOperators(child.field.kind).includes(condition.operator)) throw new Error('List visibility rule operator is not compatible with its item field');
+        if (['equals', 'notEquals', 'greaterThan', 'lessThan'].includes(condition.operator) && condition.value === undefined) throw new Error('List visibility rule requires a comparison value');
+      }
+      addEdge(id, clause.listId);
+    }
+    };
+    validateGroup(group);
   }
   const visiting = new Set<string>();
   const visited = new Set<string>();
@@ -213,6 +277,7 @@ export function evaluateVisibleFields(fields: EditableField[], formData: unknown
   validateVisibilityRules(fields);
   const references = indexFields(fields);
   const visibility = new Map<string, boolean>();
+  const fieldKeys = buildFieldKeyMap(fields);
   const isVisible = (id: string): boolean => {
     if (visibility.has(id)) return visibility.get(id)!;
     const reference = references.get(id);
@@ -220,9 +285,28 @@ export function evaluateVisibleFields(fields: EditableField[], formData: unknown
     if (reference.parentId && !isVisible(reference.parentId)) { visibility.set(id, false); return false; }
     const rule = reference.field.visibility;
     if (!rule) { visibility.set(id, true); return true; }
-    if (!isVisible(rule.controllerId)) { visibility.set(id, false); return false; }
-    const controller = references.get(rule.controllerId);
-    const visible = ruleMatches(rule, valueAtPath(formData, controller?.path));
+    const matches = (left: boolean, operator: 'and' | 'or', right: boolean) => operator === 'and' ? left && right : left || right;
+    const evaluateExpression = (expression: VisibilityExpression): boolean => {
+      const matches = (() => {
+      if (expression.kind === 'group') return evaluateGroup(expression);
+      if (expression.kind === 'field') {
+        if (!isVisible(expression.controllerId)) return false;
+        return ruleMatches(expression, valueAtPath(formData, references.get(expression.controllerId)?.path));
+      }
+      if (!isVisible(expression.listId)) return false;
+      const rows = valueAtPath(formData, references.get(expression.listId)?.path);
+      if (!Array.isArray(rows) || rows.length === 0) return false;
+      const rowMatches = (row: unknown) => {
+        if (!isRecord(row)) return false;
+        const values = expression.conditions.clauses.map((condition) => ruleMatches(condition, row[fieldKeys.get(condition.fieldId) ?? '']));
+        return expression.conditions.combinator === 'and' ? values.every(Boolean) : values.some(Boolean);
+      };
+      return expression.quantifier === 'any' ? rows.some(rowMatches) : rows.every(rowMatches);
+      })();
+      return expression.not ? !matches : matches;
+    };
+    const evaluateGroup = (group: VisibilityExpressionGroup): boolean => group.operands.map(evaluateExpression).reduce((result, value, index) => index === 0 ? value : matches(result, group.operators[index - 1], value), false);
+    const visible = evaluateGroup(normalizeVisibilityRule(rule));
     visibility.set(id, visible);
     return visible;
   };
