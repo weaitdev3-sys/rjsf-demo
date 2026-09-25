@@ -1,0 +1,58 @@
+{
+  "id": "support-at-home-care-plan",
+  "name": "Support at Home Care Plan",
+  "fields": [],
+  "pages": [
+    {
+      "id": "general",
+      "title": "General",
+      "fields": [
+        { "id": "general-heading", "kind": "heading", "label": "Support at Home Care Plan" },
+        { "id": "assessor", "kind": "text", "label": "Assessor name", "required": true },
+        { "id": "review-date", "kind": "date", "label": "Review on", "required": true },
+        { "id": "health", "kind": "container", "label": "Health summary", "children": [
+          { "id": "mobility", "kind": "select", "label": "Mobility", "options": ["Independent", "Uses mobility aid", "Requires assistance"] },
+          { "id": "medical-history", "kind": "textarea", "label": "Medical history" },
+          { "id": "personal-preferences", "kind": "textarea", "label": "Personal preferences" }
+        ] },
+        { "id": "emergency", "kind": "container", "label": "Emergency plan", "children": [
+          { "id": "call-emergency", "kind": "checkbox", "label": "Call 000 in emergencies" },
+          { "id": "alternative-residency", "kind": "checkbox", "label": "Has alternative place to stay" },
+          { "id": "alternative-address", "kind": "textarea", "label": "Alternative residential address", "visibility": { "controllerId": "alternative-residency", "operator": "isChecked" } }
+        ] },
+        { "id": "services", "kind": "multiSelect", "label": "Approved services", "options": ["Nursing care", "Allied health", "Personal care", "Transport", "House cleaning", "Meals"] }
+      ]
+    },
+    {
+      "id": "clinical", "title": "Clinical Supports", "fields": [
+        { "id": "nursing", "kind": "container", "label": "Nursing care", "visibility": { "controllerId": "services", "operator": "includes", "value": "Nursing care" }, "children": [
+          { "id": "nursing-needs", "kind": "textarea", "label": "Care needs", "required": true },
+          { "id": "nursing-goals", "kind": "textarea", "label": "Goals", "required": true },
+          { "id": "nursing-schedule", "kind": "list", "label": "Service schedule", "children": [{ "id": "nursing-frequency", "kind": "select", "label": "Frequency", "options": ["Weekly", "Fortnightly", "Monthly"] }, { "id": "nursing-hours", "kind": "number", "label": "Hours" }] }
+        ] },
+        { "id": "allied", "kind": "container", "label": "Allied health", "visibility": { "controllerId": "services", "operator": "includes", "value": "Allied health" }, "children": [{ "id": "allied-service", "kind": "select", "label": "Service", "options": ["Physiotherapy", "Occupational therapy", "Podiatry"] }, { "id": "allied-goal", "kind": "textarea", "label": "Goals" }] }
+      ]
+    },
+    {
+      "id": "independence", "title": "Independence", "fields": [
+        { "id": "personal-care", "kind": "container", "label": "Personal care", "visibility": { "controllerId": "services", "operator": "includes", "value": "Personal care" }, "children": [{ "id": "personal-care-needs", "kind": "textarea", "label": "Care needs" }, { "id": "personal-care-goals", "kind": "textarea", "label": "Goals" }, { "id": "personal-care-tasks", "kind": "textarea", "label": "Tasks required" }] },
+        { "id": "transport", "kind": "container", "label": "Transport", "visibility": { "controllerId": "services", "operator": "includes", "value": "Transport" }, "children": [{ "id": "transport-needs", "kind": "textarea", "label": "Care needs" }, { "id": "transport-items", "kind": "list", "label": "Transport items", "children": [{ "id": "transport-item", "kind": "text", "label": "Item" }, { "id": "transport-amount", "kind": "number", "label": "Amount" }] }] }
+      ]
+    },
+    {
+      "id": "everyday", "title": "Everyday", "fields": [
+        { "id": "cleaning", "kind": "container", "label": "House cleaning", "visibility": { "controllerId": "services", "operator": "includes", "value": "House cleaning" }, "children": [{ "id": "cleaning-needs", "kind": "textarea", "label": "Care needs" }, { "id": "cleaning-goals", "kind": "textarea", "label": "Goals" }, { "id": "cleaning-areas", "kind": "multiSelect", "label": "Areas", "options": ["Kitchen", "Bathroom", "Living room"] }] },
+        { "id": "meals", "kind": "container", "label": "Meals", "visibility": { "controllerId": "services", "operator": "includes", "value": "Meals" }, "children": [{ "id": "meals-needs", "kind": "textarea", "label": "Care needs" }, { "id": "meals-goals", "kind": "textarea", "label": "Goals" }, { "id": "meals-per-week", "kind": "number", "label": "Meals per week" }] }
+      ]
+    },
+    {
+      "id": "review", "title": "Review", "fields": [
+        { "id": "review-heading", "kind": "heading", "label": "Review and finalise" },
+        { "id": "update-reason", "kind": "textarea", "label": "Update reason" },
+        { "id": "review-notes", "kind": "textarea", "label": "Review notes" }
+      ]
+    }
+  ],
+  "schema": { "title": "Support at Home Care Plan", "type": "object", "properties": {} },
+  "uiSchema": {}
+}

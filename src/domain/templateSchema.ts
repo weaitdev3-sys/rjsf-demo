@@ -11,6 +11,7 @@ export type FieldKind =
   | 'select'
   | 'radio'
   | 'checkbox'
+  | 'multiSelect'
   | 'autocomplete'
   | 'heading'
   | 'list'
@@ -26,7 +27,9 @@ export type VisibilityOperator =
   | 'greaterThan'
   | 'lessThan'
   | 'isChecked'
-  | 'isUnchecked';
+  | 'isUnchecked'
+  | 'includes'
+  | 'notIncludes';
 
 export type LegacyVisibilityRule = {
   controllerId: string;
@@ -84,15 +87,24 @@ export type TemplateDocument = {
   schema: RJSFSchema;
   uiSchema: UiSchema;
   fields?: EditableField[];
+  pages?: TemplatePage[];
   createdAt?: string;
   updatedAt?: string;
 };
+
+export type TemplatePage = {
+  id: string;
+  title: string;
+  fields: EditableField[];
+};
+
+export const flattenTemplateFields = (pages: TemplatePage[]) => pages.flatMap((page) => page.fields);
 
 export const propertyName = (label: string) =>
   label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'field';
 
 const presentationKinds: FieldKind[] = ['heading', 'textLayout', 'twoColumn'];
-const controllerKinds: FieldKind[] = ['text', 'textarea', 'number', 'email', 'phone', 'date', 'time', 'select', 'radio', 'checkbox', 'autocomplete'];
+const controllerKinds: FieldKind[] = ['text', 'textarea', 'number', 'email', 'phone', 'date', 'time', 'select', 'radio', 'checkbox', 'multiSelect', 'autocomplete'];
 const comparisonOperators: VisibilityOperator[] = ['equals', 'notEquals', 'isBlank', 'isNotBlank'];
 const numericComparisonOperators: VisibilityOperator[] = [...comparisonOperators, 'greaterThan', 'lessThan'];
 
@@ -182,6 +194,7 @@ const valueAtPath = (data: unknown, path: string[] | undefined): unknown => {
 
 const supportedOperators = (kind: FieldKind): VisibilityOperator[] => {
   if (kind === 'checkbox') return ['isChecked', 'isUnchecked'];
+  if (kind === 'multiSelect') return ['includes', 'notIncludes'];
   if (kind === 'number' || kind === 'date' || kind === 'time') return numericComparisonOperators;
   return comparisonOperators;
 };
@@ -213,6 +226,8 @@ const ruleMatches = (rule: LegacyVisibilityRule | ListRowVisibilityClause, value
     case 'isUnchecked': return value === false;
     case 'equals': return value === rule.value;
     case 'notEquals': return value !== rule.value;
+    case 'includes': return Array.isArray(value) && value.includes(rule.value);
+    case 'notIncludes': return Array.isArray(value) && !value.includes(rule.value);
     case 'greaterThan': return value !== undefined && value !== null && value > rule.value!;
     case 'lessThan': return value !== undefined && value !== null && value < rule.value!;
   }
@@ -242,7 +257,7 @@ export function validateVisibilityRules(fields: EditableField[]) {
         if (!controller || controller.listItem || !controllerKinds.includes(controller.field.kind)) throw new Error('Visibility rule controller must be a non-list input field');
         if (id === clause.controllerId) throw new Error('Visibility rule cannot depend on itself');
         if (!supportedOperators(controller.field.kind).includes(clause.operator)) throw new Error('Visibility rule operator is not compatible with its controller');
-        if (['equals', 'notEquals', 'greaterThan', 'lessThan'].includes(clause.operator) && clause.value === undefined) throw new Error('Visibility rule requires a comparison value');
+        if (['equals', 'notEquals', 'greaterThan', 'lessThan', 'includes', 'notIncludes'].includes(clause.operator) && clause.value === undefined) throw new Error('Visibility rule requires a comparison value');
         addEdge(id, clause.controllerId);
         continue;
       }
@@ -253,7 +268,7 @@ export function validateVisibilityRules(fields: EditableField[]) {
         const child = references.get(condition.fieldId);
         if (!child || !child.listItem || child.parentId !== clause.listId || !controllerKinds.includes(child.field.kind)) throw new Error('List visibility rule must reference a direct list-item field');
         if (!supportedOperators(child.field.kind).includes(condition.operator)) throw new Error('List visibility rule operator is not compatible with its item field');
-        if (['equals', 'notEquals', 'greaterThan', 'lessThan'].includes(condition.operator) && condition.value === undefined) throw new Error('List visibility rule requires a comparison value');
+        if (['equals', 'notEquals', 'greaterThan', 'lessThan', 'includes', 'notIncludes'].includes(condition.operator) && condition.value === undefined) throw new Error('List visibility rule requires a comparison value');
       }
       addEdge(id, clause.listId);
     }
@@ -375,11 +390,13 @@ function buildObjectSchema(fields: EditableField[], fieldKeys?: ReadonlyMap<stri
       ? { type: 'array', title: field.label, items: nestedObject!.schema }
       : field.kind === 'container'
         ? { title: field.label, ...nestedObject!.schema }
+      : field.kind === 'multiSelect'
+        ? { type: 'array', title: field.label, items: { type: 'string', ...(field.options?.length ? { enum: field.options } : {}) }, uniqueItems: true }
       : { type: field.kind === 'number' ? 'number' : field.kind === 'checkbox' ? 'boolean' : 'string', title: field.label };
     if (field.help) schema.description = field.help;
     if (field.kind === 'date') schema.format = 'date';
     if (field.kind === 'time') schema.format = 'time';
-    if (field.options?.length && field.kind !== 'list') schema.enum = field.options;
+    if (field.options?.length && field.kind !== 'list' && field.kind !== 'multiSelect') schema.enum = field.options;
     if (field.minimum !== undefined) schema.minimum = field.minimum;
     if (field.maximum !== undefined) schema.maximum = field.maximum;
     properties[key] = schema;
@@ -387,7 +404,7 @@ function buildObjectSchema(fields: EditableField[], fieldKeys?: ReadonlyMap<stri
       ? { items: nestedObject!.uiSchema }
       : field.kind === 'container'
         ? { ...(field.showLabel === false ? { 'ui:options': { label: false } } : {}), ...nestedObject!.uiSchema }
-      : { 'ui:widget': field.kind === 'number' ? 'updown' : field.kind === 'phone' ? 'tel' : field.kind === 'checkbox' ? 'checkbox' : field.kind === 'autocomplete' ? 'select' : field.kind };
+      : { 'ui:widget': field.kind === 'number' ? 'updown' : field.kind === 'phone' ? 'tel' : field.kind === 'checkbox' ? 'checkbox' : field.kind === 'multiSelect' ? 'checkboxes' : field.kind === 'autocomplete' ? 'select' : field.kind };
     if (field.required) required.push(key);
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFieldKeyMap, buildTemplateDocument, clearVisibilityReferences, evaluateVisibleFields, pruneHiddenValues, validateVisibilityRules, type EditableField } from '../src/domain/templateSchema';
+import { buildFieldKeyMap, buildTemplateDocument, clearVisibilityReferences, evaluateVisibleFields, flattenTemplateFields, pruneHiddenValues, validateVisibilityRules, type EditableField, type TemplatePage } from '../src/domain/templateSchema';
 import { safeTemplateId } from '../server/templateStore';
 
 describe('template document contract', () => {
@@ -174,6 +174,32 @@ describe('template document contract', () => {
       contact_method: { 'ui:widget': 'radio' },
       age: { 'ui:widget': 'updown' }
     });
+  });
+
+  it('serializes multi-select values as checkbox arrays and gates fields by a selected option', () => {
+    const fields: EditableField[] = [
+      { id: 'services', kind: 'multiSelect', label: 'Approved services', options: ['Nursing', 'Transport'] },
+      { id: 'nursing', kind: 'container', label: 'Nursing details', visibility: { controllerId: 'services', operator: 'includes', value: 'Nursing' }, children: [{ id: 'goal', kind: 'text', label: 'Goal' }] }
+    ];
+
+    const template = buildTemplateDocument('Care plan', fields);
+    expect(template.schema.properties).toMatchObject({
+      approved_services: { type: 'array', items: { type: 'string', enum: ['Nursing', 'Transport'] } }
+    });
+    expect(template.uiSchema).toMatchObject({ approved_services: { 'ui:widget': 'checkboxes' } });
+    expect(evaluateVisibleFields(fields, { approved_services: ['Nursing'] }).map((field) => field.id)).toEqual(['services', 'nursing']);
+    expect(pruneHiddenValues(fields, { approved_services: ['Transport'], nursing_details: { goal: 'Hidden' } })).toEqual({ approved_services: ['Transport'] });
+  });
+
+  it('flattens paged templates so a later page can depend on an earlier page', () => {
+    const pages: TemplatePage[] = [
+      { id: 'general', title: 'General', fields: [{ id: 'services', kind: 'multiSelect', label: 'Services', options: ['Meals'] }] },
+      { id: 'everyday', title: 'Everyday', fields: [{ id: 'meals', kind: 'text', label: 'Meals per week', visibility: { controllerId: 'services', operator: 'includes', value: 'Meals' } }] }
+    ];
+
+    const fields = flattenTemplateFields(pages);
+    expect(buildTemplateDocument('Care plan', fields).schema.properties).toHaveProperty('meals_per_week');
+    expect(evaluateVisibleFields(fields, { services: ['Meals'] }).map((field) => field.id)).toEqual(['services', 'meals']);
   });
 
   it('permits only a simple filename-safe template identifier', () => {

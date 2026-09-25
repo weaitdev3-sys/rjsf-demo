@@ -13,6 +13,43 @@ vi.stubGlobal('ResizeObserver', ResizeObserverMock);
 afterEach(cleanup);
 
 describe('form builder', () => {
+  it('renders only the outer Save response submit control in fill mode', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add text field' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add email' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Fill form' }));
+
+    expect(screen.queryAllByRole('button', { name: 'Submit' })).toHaveLength(0);
+    expect(screen.getAllByRole('button', { name: 'Save response' })).toHaveLength(1);
+  });
+
+  it('creates pages and keeps their fields separate in the builder', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add page' }));
+    fireEvent.change(screen.getByLabelText('Page title'), { target: { value: 'Clinical Supports' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
+
+    expect(screen.getByText('Clinical Supports')).toBeInTheDocument();
+    expect(screen.getByText('Untitled Text field')).toBeInTheDocument();
+  });
+
+  it('adds a multi-select controller and offers its conditional logic', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add multi-select' }));
+    fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Approved services' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add container' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Conditional logic' })).toBeInTheDocument();
+    expect(screen.getByText('Includes option')).toBeInTheDocument();
+  });
+
   it('adds a field from the palette and updates its visible label', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
