@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { buildFieldKeyMap, buildTemplateDocument, clearVisibilityReferences, evaluateVisibleFields, flattenTemplateFields, pruneHiddenValues, validateVisibilityRules, type EditableField, type TemplatePage } from '../src/domain/templateSchema';
-import { safeTemplateId } from '../server/templateStore';
+import { safeTemplateId, TemplateStore } from '../server/templateStore';
 
 describe('template document contract', () => {
+  it('uses the Railway volume as its default storage root', () => {
+    expect(new TemplateStore()).toMatchObject({
+      templatesDirectory: '/app/data/templates',
+      submissionsDirectory: '/app/data/submissions'
+    });
+  });
+
   it('evaluates AND and OR visibility groups while retaining legacy rules', () => {
     const fields: EditableField[] = [
       { id: 'contact', kind: 'radio', label: 'Contact', options: ['Phone', 'Email'] },

@@ -19,7 +19,7 @@ export class TemplateStore {
   private readonly templatesDirectory: string;
   private readonly submissionsDirectory: string;
 
-  constructor(root = process.cwd()) {
+  constructor(root = '/app/data') {
     this.templatesDirectory = path.resolve(root, 'templates');
     this.submissionsDirectory = path.resolve(root, 'submissions');
   }
