@@ -13,6 +13,30 @@ vi.stubGlobal('ResizeObserver', ResizeObserverMock);
 afterEach(cleanup);
 
 describe('form builder', () => {
+  it('names new pages sequentially and keeps one page when deleting', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+  expect(screen.getByLabelText('Page title')).toHaveValue('Page 1');
+  fireEvent.click(screen.getByRole('button', { name: 'Add page' }));
+  expect(screen.getByLabelText('Page title')).toHaveValue('Page 2');
+  fireEvent.click(screen.getByRole('button', { name: 'Remove page' }));
+  expect(screen.getByLabelText('Page title')).toHaveValue('Page 1');
+    expect(screen.getByRole('button', { name: 'Remove page' })).toBeDisabled();
+  });
+
+  it('renders stepper navigation for multi-page forms', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Form layout' }), { target: { value: 'stepper' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add page' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Fill form' }));
+
+    expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument();
+    expect(screen.getByText('Step 1 of 2')).toBeInTheDocument();
+  });
+
   it('renders only the outer Save response submit control in fill mode', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);

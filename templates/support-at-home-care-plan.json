@@ -1,6 +1,7 @@
 {
   "id": "support-at-home-care-plan",
   "name": "Support at Home Care Plan",
+  "formLayout": { "kind": "stepper", "navigation": "sequential" },
   "fields": [],
   "pages": [
     {

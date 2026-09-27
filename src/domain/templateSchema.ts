@@ -17,7 +17,8 @@ export type FieldKind =
   | 'list'
   | 'container'
   | 'textLayout'
-  | 'twoColumn';
+  | 'twoColumn'
+  | 'tabs';
 
 export type VisibilityOperator =
   | 'equals'
@@ -78,8 +79,11 @@ export type EditableField = {
   content?: string;
   leftChildren?: EditableField[];
   rightChildren?: EditableField[];
+  tabs?: TabPanel[];
   visibility?: VisibilityRule;
 };
+
+export type TabPanel = { id: string; label: string; fields: EditableField[] };
 
 export type TemplateDocument = {
   id?: string;
@@ -88,9 +92,12 @@ export type TemplateDocument = {
   uiSchema: UiSchema;
   fields?: EditableField[];
   pages?: TemplatePage[];
+  formLayout?: FormLayout;
   createdAt?: string;
   updatedAt?: string;
 };
+
+export type FormLayout = { kind: 'flat' } | { kind: 'stepper'; navigation: 'sequential' | 'free' };
 
 export type TemplatePage = {
   id: string;
@@ -98,12 +105,15 @@ export type TemplatePage = {
   fields: EditableField[];
 };
 
+// Pages are a builder concern; schema generation operates on their ordered field list.
 export const flattenTemplateFields = (pages: TemplatePage[]) => pages.flatMap((page) => page.fields);
 
+// Labels become JSON property names, so normalise user input before checking collisions.
 export const propertyName = (label: string) =>
   label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'field';
 
-const presentationKinds: FieldKind[] = ['heading', 'textLayout', 'twoColumn'];
+// Presentation blocks may contain fields, but do not create a value of their own.
+const presentationKinds: FieldKind[] = ['heading', 'textLayout', 'twoColumn', 'tabs'];
 const controllerKinds: FieldKind[] = ['text', 'textarea', 'number', 'email', 'phone', 'date', 'time', 'select', 'radio', 'checkbox', 'multiSelect', 'autocomplete'];
 const comparisonOperators: VisibilityOperator[] = ['equals', 'notEquals', 'isBlank', 'isNotBlank'];
 const numericComparisonOperators: VisibilityOperator[] = [...comparisonOperators, 'greaterThan', 'lessThan'];
@@ -126,6 +136,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(v
 const isDataField = (field: EditableField) => !presentationKinds.includes(field.kind);
 
 function indexFields(fields: EditableField[]): Map<string, FieldReference> {
+  // One traversal establishes each field's path and nesting context. Visibility,
+  // pruning, and schema generation must agree on these paths.
   const references = new Map<string, FieldReference>();
   const visit = (scope: EditableField[], parentPath: string[], parentId: string | undefined, listItem: boolean, scopeProperties?: Record<string, RJSFSchema>) => {
     const properties = scopeProperties ?? {};
@@ -135,6 +147,8 @@ function indexFields(fields: EditableField[]): Map<string, FieldReference> {
         continue;
       }
       if (field.kind === 'twoColumn') {
+        // Column children share the surrounding object rather than introducing a
+        // nested object for the visual two-column layout.
         references.set(field.id, { field, parentId, listItem });
         const columnProperties: Record<string, RJSFSchema> = {};
         const visitColumn = (children: EditableField[]) => children.forEach((child) => {
@@ -160,6 +174,13 @@ function indexFields(fields: EditableField[]): Map<string, FieldReference> {
         visitColumn(field.rightChildren ?? []);
         continue;
       }
+      if (field.kind === 'tabs') {
+        // Tabs are also presentation-only: their panels contribute properties to
+        // the current object in tab order.
+        references.set(field.id, { field, parentId, listItem });
+        field.tabs?.forEach((tab) => visit(tab.fields, parentPath, field.id, listItem, properties));
+        continue;
+      }
       const key = uniquePropertyName(propertyName(field.label), properties);
       properties[key] = {};
       const path = [...parentPath, key];
@@ -177,6 +198,8 @@ export function buildFieldKeyMap(fields: EditableField[]): ReadonlyMap<string, s
 }
 
 export function clearVisibilityReferences(fields: EditableField[], removedIds: Iterable<string>): EditableField[] {
+  // Deleting a controller must also remove rules that would otherwise reference
+  // an impossible field. Descend into every layout that can own children.
   const removed = new Set(removedIds);
   return fields.map((field) => ({
     ...field,
@@ -184,6 +207,7 @@ export function clearVisibilityReferences(fields: EditableField[], removedIds: I
     ...(field.children ? { children: clearVisibilityReferences(field.children, removed) } : {}),
     ...(field.leftChildren ? { leftChildren: clearVisibilityReferences(field.leftChildren, removed) } : {}),
     ...(field.rightChildren ? { rightChildren: clearVisibilityReferences(field.rightChildren, removed) } : {})
+    ,...(field.tabs ? { tabs: field.tabs.map((tab) => ({ ...tab, fields: clearVisibilityReferences(tab.fields, removed) })) } : {})
   }));
 }
 
@@ -202,6 +226,8 @@ const supportedOperators = (kind: FieldKind): VisibilityOperator[] => {
 const isLegacyVisibilityRule = (rule: VisibilityRule): rule is LegacyVisibilityRule => 'controllerId' in rule;
 const isExpressionGroup = (rule: VisibilityRule): rule is VisibilityExpressionGroup => 'operands' in rule;
 const normalizeVisibilityRule = (rule: VisibilityRule): VisibilityExpressionGroup => {
+  // Persisted templates can use the original single rule, the first grouped
+  // format, or the current nested-expression format. Evaluation has one shape.
   if (isLegacyVisibilityRule(rule)) return { kind: 'group', operands: [{ kind: 'field', ...rule }], operators: [] };
   if (isExpressionGroup(rule)) return rule;
   return { kind: 'group', operands: rule.clauses, operators: rule.clauses.slice(1).map(() => rule.combinator) };
@@ -234,6 +260,8 @@ const ruleMatches = (rule: LegacyVisibilityRule | ListRowVisibilityClause, value
 };
 
 export function validateVisibilityRules(fields: EditableField[]) {
+  // Validate references before evaluating rules so an invalid template fails at
+  // save/preview time instead of silently rendering a misleading form.
   const references = indexFields(fields);
   const edges = new Map<string, Set<string>>();
   const addEdge = (from: string, to: string | undefined) => {
@@ -278,6 +306,8 @@ export function validateVisibilityRules(fields: EditableField[]) {
   const visiting = new Set<string>();
   const visited = new Set<string>();
   const visit = (id: string) => {
+    // A depth-first active set detects indirect dependencies as well as a field
+    // directly referencing itself.
     if (visiting.has(id)) throw new Error('Visibility rule cycle detected');
     if (visited.has(id)) return;
     visiting.add(id);
@@ -294,6 +324,8 @@ export function evaluateVisibleFields(fields: EditableField[], formData: unknown
   const visibility = new Map<string, boolean>();
   const fieldKeys = buildFieldKeyMap(fields);
   const isVisible = (id: string): boolean => {
+    // Memoisation prevents repeated rule work and guarantees a child cannot be
+    // visible when its parent layout is hidden.
     if (visibility.has(id)) return visibility.get(id)!;
     const reference = references.get(id);
     if (!reference) return false;
@@ -330,12 +362,15 @@ export function evaluateVisibleFields(fields: EditableField[], formData: unknown
     const { visibility: _visibility, ...visibleField } = field;
     if (field.kind === 'container') return [{ ...visibleField, children: filter(field.children ?? []) }];
     if (field.kind === 'twoColumn') return [{ ...visibleField, leftChildren: filter(field.leftChildren ?? []), rightChildren: filter(field.rightChildren ?? []) }];
+    if (field.kind === 'tabs') return [{ ...visibleField, tabs: field.tabs?.map((tab) => ({ ...tab, fields: filter(tab.fields) })) }];
     return [visibleField];
   });
   return filter(fields);
 }
 
 export function pruneHiddenValues(fields: EditableField[], formData: unknown): Record<string, unknown> {
+  // Values from hidden fields must never be submitted, even when a previously
+  // visible control remains in the browser's form state.
   const visibleFields = evaluateVisibleFields(fields, formData);
   const fieldKeys = buildFieldKeyMap(fields);
   const pruneScope = (scope: EditableField[], value: unknown): Record<string, unknown> => {
@@ -344,6 +379,7 @@ export function pruneHiddenValues(fields: EditableField[], formData: unknown): R
     const properties: Record<string, RJSFSchema> = {};
     const consume = (items: EditableField[]) => items.forEach((field) => {
       if (field.kind === 'twoColumn') { consume(field.leftChildren ?? []); consume(field.rightChildren ?? []); return; }
+      if (field.kind === 'tabs') { field.tabs?.forEach((tab) => consume(tab.fields)); return; }
       if (!isDataField(field)) return;
       const key = fieldKeys.get(field.id) ?? uniquePropertyName(propertyName(field.label), properties);
       properties[key] = {};
@@ -360,6 +396,7 @@ export function pruneHiddenValues(fields: EditableField[], formData: unknown): R
 }
 
 export function buildTemplateDocument(name: string, fields: EditableField[], fieldKeys?: ReadonlyMap<string, string>): TemplateDocument {
+  // Schema creation is the final validation boundary for templates saved by the UI.
   validateVisibilityRules(fields);
   const { schema, uiSchema } = buildObjectSchema(fields, fieldKeys);
   return { name, fields, schema: { title: name, ...schema }, uiSchema };
@@ -373,6 +410,8 @@ function buildObjectSchema(fields: EditableField[], fieldKeys?: ReadonlyMap<stri
   for (const field of fields) {
     if (field.kind === 'heading' || field.kind === 'textLayout') continue;
     if (field.kind === 'twoColumn') {
+      // Preserve the visual layout in the editor while flattening fields into the
+      // surrounding JSON object expected by RJSF.
       const columns = buildObjectSchema([...(field.leftChildren ?? []), ...(field.rightChildren ?? [])], fieldKeys);
       for (const [key, schema] of Object.entries(columns.schema.properties ?? {})) {
         const uniqueKey = uniquePropertyName(key, properties);
@@ -380,6 +419,14 @@ function buildObjectSchema(fields: EditableField[], fieldKeys?: ReadonlyMap<stri
         uiSchema[uniqueKey] = columns.uiSchema[key];
       }
       required.push(...((columns.schema.required as string[] | undefined) ?? []));
+      continue;
+    }
+    if (field.kind === 'tabs') {
+      // Tab panels are navigation only; their fields use the same object scope.
+      const tabFields = field.tabs?.flatMap((tab) => tab.fields) ?? [];
+      const tabSchema = buildObjectSchema(tabFields, fieldKeys);
+      for (const [key, schema] of Object.entries(tabSchema.schema.properties ?? {})) { properties[key] = schema as RJSFSchema; uiSchema[key] = tabSchema.uiSchema[key]; }
+      required.push(...((tabSchema.schema.required as string[] | undefined) ?? []));
       continue;
     }
     const key = fieldKeys?.get(field.id) ?? uniquePropertyName(propertyName(field.label), properties);

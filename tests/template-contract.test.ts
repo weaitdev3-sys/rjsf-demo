@@ -191,6 +191,13 @@ describe('template document contract', () => {
     expect(pruneHiddenValues(fields, { approved_services: ['Transport'], nursing_details: { goal: 'Hidden' } })).toEqual({ approved_services: ['Transport'] });
   });
 
+  it('flattens tab-panel fields without adding a response property for the tabs layout', () => {
+    const template = buildTemplateDocument('Tabbed form', [{ id: 'tabs', kind: 'tabs', label: 'Details', tabs: [{ id: 'contact', label: 'Contact', fields: [{ id: 'email', kind: 'email', label: 'Email' }] }, { id: 'notes', label: 'Notes', fields: [{ id: 'note', kind: 'textarea', label: 'Note' }] }] }]);
+
+    expect(template.schema.properties).toMatchObject({ email: { type: 'string' }, note: { type: 'string' } });
+    expect(template.schema.properties).not.toHaveProperty('details');
+  });
+
   it('flattens paged templates so a later page can depend on an earlier page', () => {
     const pages: TemplatePage[] = [
       { id: 'general', title: 'General', fields: [{ id: 'services', kind: 'multiSelect', label: 'Services', options: ['Meals'] }] },

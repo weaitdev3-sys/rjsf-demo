@@ -1,22 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, AppShell, Badge, Box, Button, Checkbox, Divider, Group, MantineProvider, Modal, NumberInput, Paper, ScrollArea, Select, SimpleGrid, Stack, Text, TextInput, Textarea, Title } from '@mantine/core';
+import { Alert, AppShell, Badge, Box, Button, Checkbox, Divider, Group, MantineProvider, Modal, NumberInput, Paper, ScrollArea, Select, SimpleGrid, Stack, Tabs, Text, TextInput, Textarea, Title } from '@mantine/core';
 import Form from '@rjsf/mantine';
 import validator from '@rjsf/validator-ajv8';
 import type { RJSFSchema, UiSchema } from '@rjsf/utils';
-import type { EditableField, FieldKind, FieldVisibilityClause, ListRowVisibilityClause, ListVisibilityClause, TemplateDocument, TemplatePage, VisibilityClause, VisibilityExpression, VisibilityExpressionGroup, VisibilityGroup, VisibilityOperator, VisibilityRule } from './domain/templateSchema';
+import type { EditableField, FieldKind, FieldVisibilityClause, FormLayout, ListRowVisibilityClause, ListVisibilityClause, TemplateDocument, TemplatePage, VisibilityClause, VisibilityExpression, VisibilityExpressionGroup, VisibilityGroup, VisibilityOperator, VisibilityRule } from './domain/templateSchema';
 import { buildFieldKeyMap, buildTemplateDocument, clearVisibilityReferences, evaluateVisibleFields, pruneHiddenValues, propertyName } from './domain/templateSchema';
 
 type TemplateSummary = TemplateDocument & { id: string };
+// The palette and settings type selector share this single source of field labels.
 const fieldKinds: { kind: FieldKind; label: string }[] = [
-  { kind: 'text', label: 'Text field' }, { kind: 'textarea', label: 'Long text' }, { kind: 'number', label: 'Number' }, { kind: 'email', label: 'Email' }, { kind: 'phone', label: 'Phone' }, { kind: 'date', label: 'Date picker' }, { kind: 'time', label: 'Time picker' }, { kind: 'select', label: 'Select' }, { kind: 'radio', label: 'Radio' }, { kind: 'checkbox', label: 'Checkbox' }, { kind: 'multiSelect', label: 'Multi-select' }, { kind: 'autocomplete', label: 'Autocomplete' }, { kind: 'list', label: 'List input' }, { kind: 'container', label: 'Container' }, { kind: 'heading', label: 'Heading' }, { kind: 'textLayout', label: 'Text' }, { kind: 'twoColumn', label: 'Two-column' }
+  { kind: 'text', label: 'Text field' }, { kind: 'textarea', label: 'Long text' }, { kind: 'number', label: 'Number' }, { kind: 'email', label: 'Email' }, { kind: 'phone', label: 'Phone' }, { kind: 'date', label: 'Date picker' }, { kind: 'time', label: 'Time picker' }, { kind: 'select', label: 'Select' }, { kind: 'radio', label: 'Radio' }, { kind: 'checkbox', label: 'Checkbox' }, { kind: 'multiSelect', label: 'Multi-select' }, { kind: 'autocomplete', label: 'Autocomplete' }, { kind: 'list', label: 'List input' }, { kind: 'container', label: 'Container' }, { kind: 'heading', label: 'Heading' }, { kind: 'textLayout', label: 'Text' }, { kind: 'twoColumn', label: 'Two-column' }, { kind: 'tabs', label: 'Tabs' }
 ];
-const inputKinds = fieldKinds.filter(({ kind }) => !['container', 'heading', 'textLayout', 'twoColumn'].includes(kind));
+const inputKinds = fieldKinds.filter(({ kind }) => !['container', 'heading', 'textLayout', 'twoColumn', 'tabs'].includes(kind));
 const listChildKinds = inputKinds.filter(({ kind }) => kind !== 'list');
 const containerChildKinds = listChildKinds;
-const layoutKinds = fieldKinds.filter(({ kind }) => ['container', 'heading', 'textLayout', 'twoColumn'].includes(kind));
+const layoutKinds = fieldKinds.filter(({ kind }) => ['container', 'heading', 'textLayout', 'twoColumn', 'tabs'].includes(kind));
 const kindLabel = (kind: FieldKind) => fieldKinds.find((item) => item.kind === kind)?.label ?? 'field';
 const keyedField = (field: EditableField) => !['heading', 'textLayout', 'twoColumn'].includes(field.kind);
 const uniqueLabel = (label: string, siblings: EditableField[], id?: string) => {
+  // Labels become property keys, so sibling labels must remain unique after normalisation.
   const keys = new Set(siblings.filter((field) => field.id !== id && keyedField(field)).map((field) => propertyName(field.label)));
   if (!keys.has(propertyName(label))) return label;
   let suffix = 2;
@@ -24,6 +26,7 @@ const uniqueLabel = (label: string, siblings: EditableField[], id?: string) => {
   return `${label}_${suffix}`;
 };
 const emptyField = (kind: FieldKind, index: number): EditableField => ({
+  // Nested fields use the caller's position to keep locally-created IDs unique.
   id: `${kind}-${Date.now()}-${index}`,
   kind,
   label: kind === 'heading' ? 'Section heading' : `Untitled ${kindLabel(kind)}`,
@@ -32,6 +35,7 @@ const emptyField = (kind: FieldKind, index: number): EditableField => ({
   ...(kind === 'container' ? { children: [], showLabel: true } : {}),
   ...(kind === 'textLayout' ? { content: 'Text block' } : {}),
   ...(kind === 'twoColumn' ? { leftChildren: [], rightChildren: [] } : {})
+  ,...(kind === 'tabs' ? { tabs: [{ id: 'tab-1', label: 'Tab 1', fields: [] }, { id: 'tab-2', label: 'Tab 2', fields: [] }] } : {})
 });
 
 const visibilityControllerKinds: FieldKind[] = ['text', 'textarea', 'number', 'email', 'phone', 'date', 'time', 'select', 'radio', 'checkbox', 'multiSelect', 'autocomplete'];
@@ -60,6 +64,8 @@ const ruleDependencies = (rule: VisibilityRule | undefined): string[] => !rule ?
   : 'operands' in rule ? rule.operands.flatMap(expressionDependencies)
   : rule.clauses.flatMap(expressionDependencies);
 const createsVisibilityCycle = (fields: EditableField[], targetId: string, controllerId: string) => {
+  // Candidate controls are excluded when their existing dependency chain already
+  // reaches the field being configured.
   const dependencies = new Map<string, Set<string>>();
   const addDependency = (fieldId: string, dependencyId: string | undefined) => {
     if (!dependencyId) return;
@@ -135,6 +141,12 @@ function VisibilitySettings(props: { fields: EditableField[]; field: EditableFie
 }
 
 function FillFieldFragment({ fields, document, fieldKeys, formData, onChange }: { fields: EditableField[]; document: TemplateDocument; fieldKeys: ReadonlyMap<string, string>; formData: Record<string, unknown>; onChange: (formData: Record<string, unknown>) => void }) {
+  // RJSF receives only the fragment's schema, but changes are merged back into
+  // the complete response so fields on other pages retain their values.
+  if (fields.length === 1 && fields[0].kind === 'tabs') {
+    const tabs = fields[0].tabs ?? [];
+    return <Tabs defaultValue={tabs[0]?.id}><Tabs.List>{tabs.map((tab) => <Tabs.Tab key={tab.id} value={tab.id}>{tab.label}</Tabs.Tab>)}</Tabs.List>{tabs.map((tab) => <Tabs.Panel key={tab.id} value={tab.id} pt="md"><FillFieldFragment fields={tab.fields} document={document} fieldKeys={fieldKeys} formData={formData} onChange={onChange} /></Tabs.Panel>)}</Tabs>;
+  }
   const keys = fields.flatMap((field) => {
     if (field.kind === 'twoColumn') return [...(field.leftChildren ?? []), ...(field.rightChildren ?? [])].flatMap((child) => fieldKeys.get(child.id) ?? []);
     const key = fieldKeys.get(field.id);
@@ -159,7 +171,9 @@ export default function App() {
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [name, setName] = useState('Untitled form');
   const [fields, setFields] = useState<EditableField[]>([]);
-  const [pages, setPages] = useState<TemplatePage[]>([{ id: 'page-1', title: 'Form', fields: [] }]);
+  const [pages, setPages] = useState<TemplatePage[]>([{ id: 'page-1', title: 'Page 1', fields: [] }]);
+  const [formLayout, setFormLayout] = useState<FormLayout>({ kind: 'flat' });
+  const [fillPage, setFillPage] = useState(0);
   const [activePage, setActivePage] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [selectedChildIndex, setSelectedChildIndex] = useState<number | null>(null);
@@ -169,19 +183,24 @@ export default function App() {
   const [fillData, setFillData] = useState<Record<string, unknown>>({});
 
   const persistedPages = useMemo(() => pages.map((page, index) => index === activePage ? { ...page, fields } : page), [pages, activePage, fields]);
+  // Build one schema for persistence and a second, page-scoped schema for the
+  // current fill step. This keeps stepper navigation from duplicating submit UI.
   const allPageFields = useMemo(() => persistedPages.flatMap((page) => page.fields), [persistedPages]);
   const fillFieldKeys = useMemo(() => buildFieldKeyMap(allPageFields), [allPageFields]);
 
   const buildResult = useMemo(() => {
-    try { return { document: { ...buildTemplateDocument(name, allPageFields), pages: persistedPages }, error: null }; }
+    try { return { document: { ...buildTemplateDocument(name, allPageFields), pages: persistedPages, formLayout }, error: null }; }
     catch (error) { return { document: undefined, error: error instanceof Error ? error.message : 'Invalid form definition' }; }
-  }, [name, allPageFields, persistedPages]);
+  }, [name, allPageFields, persistedPages, formLayout]);
   const fillResult = useMemo(() => {
     try {
       const visibleFields = evaluateVisibleFields(allPageFields, fillData);
-      return { document: buildTemplateDocument(name, visibleFields, fillFieldKeys), fields: visibleFields, error: null };
+      const renderedFields = formLayout.kind === 'stepper'
+        ? visibleFields.filter((field) => persistedPages[fillPage]?.fields.some((pageField) => pageField.id === field.id))
+        : visibleFields;
+      return { document: buildTemplateDocument(name, visibleFields, fillFieldKeys), fields: renderedFields, error: null };
     } catch (error) { return { document: undefined, fields: [], error: error instanceof Error ? error.message : 'Invalid visibility rule' }; }
-  }, [name, allPageFields, fillData, fillFieldKeys]);
+  }, [name, allPageFields, fillData, fillFieldKeys, formLayout, persistedPages, fillPage]);
   const selected = selectedIndex === null ? undefined : fields[selectedIndex];
   const selectedChild = (selected?.kind === 'list' || selected?.kind === 'container') && selectedChildIndex !== null ? selected.children?.[selectedChildIndex] : undefined;
   const editingChild = Boolean(selectedChild);
@@ -237,28 +256,46 @@ export default function App() {
     if (selectedIndex === null) return;
     if (selectedChildIndex !== null && (selected?.kind === 'list' || selected?.kind === 'container')) {
       const removedId = selected.children?.[selectedChildIndex]?.id;
+      // A deleted subtree can be referenced by several rules, so clear every ID
+      // it owns before returning to the parent editor.
       setFields((current) => clearVisibilityReferences(current.map((field, index) => index === selectedIndex ? { ...field, children: field.children?.filter((_, childIndex) => childIndex !== selectedChildIndex) } : field), removedId ? allFields([selected.children?.[selectedChildIndex]!]).map((field) => field.id) : [])); setSelectedChildIndex(null); return;
     }
     const removedIds = selected ? allFields([selected]).map((field) => field.id) : [];
     setFields((current) => clearVisibilityReferences(current.filter((_, index) => index !== selectedIndex), removedIds)); setSelectedIndex(null); setSelectedChildIndex(null);
   };
-  const createNew = () => { setOpenedId(null); setName('Untitled form'); setFields([]); setPages([{ id: 'page-1', title: 'Form', fields: [] }]); setActivePage(0); setSelectedIndex(null); setSelectedChildIndex(null); setFillData({}); setMode('build'); setMessage(null); };
+  const createNew = () => { setOpenedId(null); setName('Untitled form'); setFields([]); setPages([{ id: 'page-1', title: 'Page 1', fields: [] }]); setFormLayout({ kind: 'flat' }); setActivePage(0); setFillPage(0); setSelectedIndex(null); setSelectedChildIndex(null); setFillData({}); setMode('build'); setMessage(null); };
   const openTemplate = async (id: string) => {
-    try { const template = await api<TemplateSummary>(`/api/templates/${id}`); const loadedPages = template.pages?.length ? template.pages : [{ id: 'page-1', title: 'Form', fields: template.fields ?? [] }]; setOpenedId(template.id); setName(template.name); setPages(loadedPages); setActivePage(0); setFields(loadedPages[0].fields); setSelectedIndex(null); setSelectedChildIndex(null); setFillData({}); setMode('build'); setMessage(null); }
+    // Older saved templates predate pages and layouts; load them as one Page 1.
+    try { const template = await api<TemplateSummary>(`/api/templates/${id}`); const loadedPages = template.pages?.length ? template.pages : [{ id: 'page-1', title: 'Page 1', fields: template.fields ?? [] }]; setOpenedId(template.id); setName(template.name); setPages(loadedPages); setFormLayout(template.formLayout ?? { kind: 'flat' }); setActivePage(0); setFillPage(0); setFields(loadedPages[0].fields); setSelectedIndex(null); setSelectedChildIndex(null); setFillData({}); setMode('build'); setMessage(null); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Could not open template'); }
   };
   const addPage = () => {
-    const page = { id: `page-${Date.now()}`, title: 'New page', fields: [] };
+    // Use the highest existing Page N rather than the array length, avoiding a
+    // duplicate title when a middle page has been removed.
+    const nextPageNumber = pages.reduce((max, page) => {
+      const number = /^Page (\d+)$/.exec(page.title)?.[1];
+      return Math.max(max, number ? Number(number) : 0);
+    }, 0) + 1;
+    const page = { id: `page-${Date.now()}`, title: `Page ${nextPageNumber}`, fields: [] };
     setPages((current) => [...current.map((item, index) => index === activePage ? { ...item, fields } : item), page]);
     setFields([]); setActivePage(pages.length); setSelectedIndex(null); setSelectedChildIndex(null);
   };
   const updatePageTitle = (title: string) => setPages((current) => current.map((page, index) => index === activePage ? { ...page, title } : page));
+  const removePage = () => {
+    // A template always retains one editable page and selects the preceding page
+    // after a removal so the builder never has an invalid active index.
+    if (pages.length === 1) return;
+    const nextPages = persistedPages.filter((_, index) => index !== activePage);
+    const nextIndex = Math.max(0, activePage - 1);
+    setPages(nextPages); setActivePage(nextIndex); setFields(nextPages[nextIndex].fields); setSelectedIndex(null); setSelectedChildIndex(null);
+  };
   const save = async () => {
     if (!buildResult.document) { setMessage(buildResult.error ?? 'Fix the form definition before saving.'); return; }
     try { const saved = await api<TemplateSummary>('/api/templates', { method: 'POST', body: JSON.stringify({ ...buildResult.document, id: openedId ?? undefined }) }); setOpenedId(saved.id); setMessage(`Saved “${saved.name}”`); await refresh(); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Could not save template'); }
   };
   const submit = async ({ formData }: { formData?: unknown }) => {
+    // Prune stale hidden values immediately before persistence as the final guard.
     if (!openedId) { setMessage('Save this form before collecting responses.'); return; }
     try { await api('/api/submissions', { method: 'POST', body: JSON.stringify({ templateId: openedId, formData: pruneHiddenValues(fields, formData ?? fillData) }) }); setMessage('Response saved locally.'); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Could not save response'); }
@@ -269,6 +306,8 @@ export default function App() {
     <AppShell.Navbar p="md" className="sidebar"><Group justify="space-between" mb="xl"><Title order={3}>Form Foundry</Title><Badge color="violet">local</Badge></Group><Button fullWidth onClick={createNew} mb="md">+ New template</Button><Text size="xs" fw={700} c="dimmed" tt="uppercase" mb="xs">Template library</Text><ScrollArea flex={1}>{templates.map((template) => <Button key={template.id} variant={openedId === template.id ? 'light' : 'subtle'} color="dark" justify="start" fullWidth onClick={() => void openTemplate(template.id)}>{template.name}</Button>)}</ScrollArea></AppShell.Navbar>
     <AppShell.Main><Box p="lg" className="topbar"><Group justify="space-between"><Box><Text size="sm" c="dimmed">Reusable JSON-schema templates</Text><TextInput value={name} onChange={(event) => setName(event.currentTarget.value)} variant="unstyled" aria-label="Template name" styles={{ input: { fontSize: '1.5rem', fontWeight: 700 } }} /></Box><Group><Button variant={mode === 'build' ? 'filled' : 'light'} onClick={() => setMode('build')}>Build</Button><Button variant={mode === 'fill' ? 'filled' : 'light'} onClick={() => setMode('fill')}>Fill form</Button><Button onClick={() => void save()}>Save template</Button></Group></Group></Box>
       {(message || buildResult.error) && <Alert color={buildResult.error ? 'red' : 'violet'} m="lg" withCloseButton={!buildResult.error} onClose={() => setMessage(null)}>{buildResult.error ?? message}</Alert>}
+      {mode === 'fill' && formLayout.kind === 'stepper' && <Paper p="md" mx="auto" mt="lg" maw={760} withBorder><Group justify="space-between"><Text>Step {fillPage + 1} of {persistedPages.length}</Text><Group>{persistedPages.map((page, index) => <Button key={page.id} size="xs" variant={index === fillPage ? 'filled' : 'light'} disabled={formLayout.navigation === 'sequential' && index > fillPage + 1} onClick={() => setFillPage(index)}>{page.title}</Button>)}</Group><Group><Button variant="default" disabled={fillPage === 0} onClick={() => setFillPage((current) => current - 1)}>Back</Button><Button disabled={fillPage === persistedPages.length - 1} onClick={() => setFillPage((current) => current + 1)}>Next</Button></Group></Group></Paper>}
+      {mode === 'build' && <Paper p="md" mx="lg" mt="lg" withBorder><Group><Text fw={600}>Form layout</Text><Select aria-label="Form layout" data={[{ value: 'flat', label: 'Flat form' }, { value: 'stepper', label: 'Stepper' }]} value={formLayout.kind} onChange={(kind) => setFormLayout(kind === 'stepper' ? { kind: 'stepper', navigation: 'sequential' } : { kind: 'flat' })} />{formLayout.kind === 'stepper' && <Select aria-label="Stepper navigation" data={[{ value: 'sequential', label: 'Sequential with revisit' }, { value: 'free', label: 'Free navigation' }]} value={formLayout.navigation} onChange={(navigation) => navigation && setFormLayout({ kind: 'stepper', navigation: navigation as 'sequential' | 'free' })} />}<Button variant="light" color="red" disabled={pages.length === 1} onClick={removePage}>Remove page</Button></Group></Paper>}
       {mode === 'build' ? <><Paper p="md" mx="lg" mt="lg" withBorder><Group><Text fw={600}>Pages</Text><Select aria-label="Active page" data={persistedPages.map((page, index) => ({ value: String(index), label: page.title }))} value={String(activePage)} onChange={(value) => { const next = Number(value); if (Number.isNaN(next) || next === activePage) return; setPages((current) => current.map((page, index) => index === activePage ? { ...page, fields } : page)); setFields(persistedPages[next].fields); setActivePage(next); setSelectedIndex(null); setSelectedChildIndex(null); }} /><TextInput label="Page title" value={persistedPages[activePage]?.title ?? ''} onChange={(event) => updatePageTitle(event.currentTarget.value)} /><Button onClick={addPage}>Add page</Button></Group></Paper><SimpleGrid cols={{ base: 1, lg: 3 }} spacing="lg" p="lg" className="workspace">
         <Paper p="md" withBorder><Title order={4} mb="sm">Fields</Title><Stack gap="xs">{inputKinds.map(({ kind, label }) => <Button key={kind} variant="light" color="violet" onClick={() => addField(kind)} aria-label={`Add ${label.toLowerCase()}`}>+ {label}</Button>)}</Stack><Divider my="md" /><Title order={4} mb="sm">Layout</Title><Stack gap="xs">{layoutKinds.map(({ kind, label }) => <Button key={kind} variant="light" color="violet" onClick={() => addField(kind)} aria-label={`Add ${label.toLowerCase()}`}>+ {label}</Button>)}</Stack></Paper>
         <Paper p="md" withBorder><Group justify="space-between" mb="sm"><Title order={4}>Form canvas</Title><Badge variant="light">{fields.length} blocks</Badge></Group><Stack gap="sm">{fields.length === 0 && <Text c="dimmed" ta="center" py="xl">Choose a field from the palette to begin.</Text>}{fields.map((field, index) => <Paper key={field.id} p="sm" withBorder className={selectedIndex === index ? 'selected-field' : ''} onClick={() => { setSelectedIndex(index); setSelectedChildIndex(null); }} style={{ cursor: 'pointer' }}>{field.kind === 'heading' ? <Title order={4}>{field.label}</Title> : field.kind === 'textLayout' ? <Text>{field.content}</Text> : field.kind === 'twoColumn' ? <><Text fw={600}>{field.label}</Text><div className="two-column-layout">{(['leftChildren', 'rightChildren'] as const).map((side) => <Stack key={side} gap={4}><Text size="xs" c="dimmed">{side === 'leftChildren' ? 'Left column' : 'Right column'}</Text>{field[side]?.map((child) => <Paper key={child.id} p={6} withBorder><Text size="sm">{child.label}</Text></Paper>)}</Stack>)}</div></> : <><Text fw={600}>{field.label}</Text><Text size="xs" c="dimmed">{field.kind}{field.required ? ' · required' : ''}{field.kind === 'list' ? ` · ${field.children?.length ?? 0} item fields` : ''}{field.kind === 'container' ? ` · ${field.children?.length ?? 0} fields` : ''}</Text>{(field.kind === 'list' || field.kind === 'container') && <Stack gap={4} mt="xs" className={field.kind === 'container' ? 'container-children' : undefined}>{field.children?.map((child, childIndex) => <Paper key={child.id} p={6} withBorder onClick={(event) => { event.stopPropagation(); setSelectedIndex(index); setSelectedChildIndex(childIndex); }} className={selectedChildIndex === childIndex && selectedIndex === index ? 'selected-child' : ''}><Text size="sm">{child.label}</Text><Text size="xs" c="dimmed">{child.kind}</Text></Paper>)}</Stack>}</>}</Paper>)}</Stack></Paper>
