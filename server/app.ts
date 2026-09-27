@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import type { TemplateDocument } from '../src/domain/templateSchema';
 import { TemplateStore } from './templateStore';
 
@@ -30,6 +31,11 @@ export function createApp(storageRoot?: string) {
       response.status(201).json(await store.saveSubmission(templateId, formData));
     } catch (error) { next(error); }
   });
+  app.use(express.static(path.join(__dirname, '../dist')));
+  app.get('*', (_request, response) => {
+    response.sendFile(path.join(__dirname, '../dist/index.html'));
+  });
+
   app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
     const message = error instanceof Error ? error.message : 'Unknown error';
     response.status(message.includes('Invalid') || message.includes('Malformed') ? 400 : message.includes('ENOENT') ? 404 : 500).json({ error: message });
