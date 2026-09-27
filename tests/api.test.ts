@@ -3,12 +3,16 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import request from 'supertest';
-import { createApp } from '../server/app';
+import { createApp, resolveStaticDirectory } from '../server/app';
 
 const temporaryDirectories: string[] = [];
 afterEach(async () => Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true }))));
 
 describe('template API', () => {
+  it('resolves the production static directory from an ES module URL', () => {
+    expect(resolveStaticDirectory('file:///app/server/app.ts')).toBe('/app/dist');
+  });
+
   it('saves a template and persists a valid response for it', async () => {
     const storageRoot = await mkdtemp(path.join(os.tmpdir(), 'form-builder-'));
     temporaryDirectories.push(storageRoot);

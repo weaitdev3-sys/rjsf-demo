@@ -1,11 +1,17 @@
 import express from 'express';
+import { fileURLToPath } from 'node:url';
 import type { TemplateDocument } from '../src/domain/templateSchema';
 import { TemplateStore } from './templateStore';
+
+export function resolveStaticDirectory(moduleUrl: string): string {
+  return fileURLToPath(new URL('../dist', moduleUrl));
+}
 
 export function createApp(storageRoot?: string) {
   const app = express();
   const store = new TemplateStore(storageRoot);
   app.use(express.json({ limit: '1mb' }));
+  app.use(express.static(resolveStaticDirectory(import.meta.url)));
 
   app.get('/api/templates', async (_request, response, next) => {
     try { response.json(await store.listTemplates()); } catch (error) { next(error); }
