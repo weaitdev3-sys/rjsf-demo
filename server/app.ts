@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { TemplateDocument } from '../src/domain/templateSchema';
 import { TemplateStore } from './templateStore';
@@ -10,8 +11,9 @@ export function resolveStaticDirectory(moduleUrl: string): string {
 export function createApp(storageRoot?: string) {
   const app = express();
   const store = new TemplateStore(storageRoot);
+  const staticDirectory = resolveStaticDirectory(import.meta.url);
   app.use(express.json({ limit: '1mb' }));
-  app.use(express.static(resolveStaticDirectory(import.meta.url)));
+  app.use(express.static(staticDirectory));
 
   app.get('/api/templates', async (_request, response, next) => {
     try { response.json(await store.listTemplates()); } catch (error) { next(error); }
@@ -36,6 +38,10 @@ export function createApp(storageRoot?: string) {
       response.status(201).json(await store.saveSubmission(templateId, formData));
     } catch (error) { next(error); }
   });
+  app.get('/{*splat}', (_request, response) => {
+    response.sendFile(path.join(staticDirectory, 'index.html'));
+  });
+
   app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
     const message = error instanceof Error ? error.message : 'Unknown error';
     response.status(message.includes('Invalid') || message.includes('Malformed') ? 400 : message.includes('ENOENT') ? 404 : 500).json({ error: message });

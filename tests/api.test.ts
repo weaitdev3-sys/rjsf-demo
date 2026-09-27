@@ -13,6 +13,13 @@ describe('template API', () => {
     expect(resolveStaticDirectory('file:///app/server/app.ts')).toBe('/app/dist');
   });
 
+  it('serves the client entry point for an unknown application route', async () => {
+    const response = await request(createApp()).get('/templates/new');
+
+    expect(response.status).toBe(200);
+    expect(response.type).toBe('text/html');
+  });
+
   it('saves a template and persists a valid response for it', async () => {
     const storageRoot = await mkdtemp(path.join(os.tmpdir(), 'form-builder-'));
     temporaryDirectories.push(storageRoot);
