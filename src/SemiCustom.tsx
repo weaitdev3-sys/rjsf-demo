@@ -24,7 +24,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 }
 const navigate = (path: string) => { window.location.href = path; };
 
-function Shell({ title, children }: { title: string; children: React.ReactNode }) {
+export function Shell({ title, children }: { title: string; children: React.ReactNode }) {
   return <AppShell padding="lg" navbar={{ width: 245, breakpoint: 'sm' }}><AppShell.Navbar p="md"><Title order={3}>Form Foundry</Title><Text size="sm" c="dimmed" mb="xl">Semi-custom care plans</Text><Stack gap="xs"><Button variant={location.pathname.startsWith('/full-custom') ? 'filled' : 'light'} onClick={() => navigate('/full-custom')}>Full-custom builder</Button><Button variant={location.pathname === '/semi/subform' ? 'filled' : 'light'} onClick={() => navigate('/semi/subform')}>Subform templates</Button><Button variant={location.pathname.startsWith('/semi/care-plan') ? 'filled' : 'light'} onClick={() => navigate('/semi/care-plan')}>Care-plan templates</Button><Button variant={location.pathname === '/responses' ? 'filled' : 'light'} onClick={() => navigate('/responses')}>Saved responses</Button></Stack></AppShell.Navbar><AppShell.Main><Group justify="space-between" mb="lg"><Box><Title order={2}>{title}</Title><Text c="dimmed">Support at Home service-template workspace</Text></Box><Badge color="violet">semi-custom</Badge></Group>{children}</AppShell.Main></AppShell>;
 }
 
