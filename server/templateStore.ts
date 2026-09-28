@@ -7,6 +7,10 @@ export function safeTemplateId(id: string): string {
   return id;
 }
 
+export function defaultStorageRoot(workingDirectory = process.cwd()): string {
+  return workingDirectory === '/app' ? '/app/data' : workingDirectory;
+}
+
 async function writeJson(directory: string, fileName: string, value: unknown) {
   await mkdir(directory, { recursive: true });
   const target = path.join(directory, fileName);
@@ -19,7 +23,7 @@ export class TemplateStore {
   private readonly templatesDirectory: string;
   private readonly submissionsDirectory: string;
 
-  constructor(root = '/app/data') {
+  constructor(root = defaultStorageRoot()) {
     this.templatesDirectory = path.resolve(root, 'templates');
     this.submissionsDirectory = path.resolve(root, 'submissions');
   }

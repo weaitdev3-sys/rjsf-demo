@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { buildFieldKeyMap, buildTemplateDocument, clearVisibilityReferences, evaluateVisibleFields, flattenTemplateFields, pruneHiddenValues, validateVisibilityRules, type EditableField, type TemplatePage } from '../src/domain/templateSchema';
-import { safeTemplateId, TemplateStore } from '../server/templateStore';
+import { defaultStorageRoot, safeTemplateId } from '../server/templateStore';
 
 describe('template document contract', () => {
-  it('uses the Railway volume as its default storage root', () => {
-    expect(new TemplateStore()).toMatchObject({
-      templatesDirectory: '/app/data/templates',
-      submissionsDirectory: '/app/data/submissions'
-    });
+  it('uses the Railway volume when the process runs from /app', () => {
+    expect(defaultStorageRoot('/app')).toBe('/app/data');
+  });
+
+  it('uses the local working directory outside Railway', () => {
+    expect(defaultStorageRoot('/workspace/form-builder-demo')).toBe('/workspace/form-builder-demo');
   });
 
   it('evaluates AND and OR visibility groups while retaining legacy rules', () => {
