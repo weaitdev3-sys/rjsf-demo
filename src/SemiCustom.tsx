@@ -1,0 +1,111 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, AppShell, Badge, Box, Button, Checkbox, Divider, Grid, Group, JsonInput, Loader, Paper, Select, SimpleGrid, Stack, Stepper, Switch, Tabs, Text, TextInput, Title } from '@mantine/core';
+import type { SemiCarePlanTemplate, SemiService, SemiSubformConfiguration, SemiSubformTemplate } from './domain/semiCustom';
+
+const services: SemiService[] = [
+  { category: 'Domestic Assistance', code: 'DOM-01', name: 'General Household Cleaning' }, { category: 'Domestic Assistance', code: 'DOM-02', name: 'Laundry & Linen' }, { category: 'Domestic Assistance', code: 'DOM-03', name: 'Meal Preparation' },
+  { category: 'Personal Care', code: 'PC-01', name: 'Showering & Grooming Assistance' }, { category: 'Personal Care', code: 'PC-02', name: 'Mobility Assistance' }, { category: 'Personal Care', code: 'PC-03', name: 'Medication Prompting' },
+  { category: 'Social Support & Community Access', code: 'SS-01', name: 'Community Access Outing' }, { category: 'Social Support & Community Access', code: 'SS-02', name: 'In-Home Companionship' },
+  { category: 'Nursing', code: 'NUR-01', name: 'Wound Care' }, { category: 'Nursing', code: 'NUR-02', name: 'Clinical Health Monitoring' }, { category: 'Respite Care', code: 'RES-01', name: 'Planned In-Home Respite' }
+];
+const participantFields = ['Full Legal Name & Preferred Name', 'ACMPS Number / MAC ID', 'Date of Birth & Age', 'Residential Address', 'Phone Number', 'Care Partner(s)', 'Funding Level'];
+const generalFields = {
+  health: ['Weight / Height / BMI', 'Teeth / Dentures', 'Skin Condition', 'Mobility', 'Vision / Glasses / Eyes', 'Hearing', 'Continence', 'Allergies, Diet & Fluids', 'Cognitive', 'Medical History', 'Social History', 'Personal Preferences', 'Advanced Care Planning', 'Living Arrangement', "Access to Participant's Home", 'Remarks'],
+  support: ['Decision-Making Capacity', 'Decision-Making Support Preferences', 'Communication Ability, Barriers & Aids', 'Communication Support Preferences', 'Dignity of Risk', 'Trauma Aware Care', 'Diverse Identity', 'Religion/Spiritual Beliefs'],
+  emergency: ['Emergency Contacts', 'Mobility Aids', 'Important Items to Take', 'Call 000 in Emergencies', 'Personal Alarm System', 'Alternative Residency', 'Remarks']
+};
+const sectionLabels: Record<string, string> = { careNeeds: 'Care Needs', participantGoals: 'Participant Goals', supportStrategies: 'Support Strategies', areasOfDifficulty: 'Areas of Difficulty and Existing Arrangements', sahRelevantInfo: 'Relevant Information on SAH Support Plan', remarks: 'Remarks', outcomeReviews: 'Outcome Reviews' };
+
+async function api<T>(url: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
+  if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error ?? 'Request failed');
+  return response.json() as Promise<T>;
+}
+const navigate = (path: string) => { window.location.href = path; };
+
+function Shell({ title, children }: { title: string; children: React.ReactNode }) {
+  return <AppShell padding="lg" navbar={{ width: 245, breakpoint: 'sm' }}><AppShell.Navbar p="md"><Title order={3}>Form Foundry</Title><Text size="sm" c="dimmed" mb="xl">Semi-custom care plans</Text><Stack gap="xs"><Button variant={location.pathname === '/full-custom' ? 'filled' : 'light'} onClick={() => navigate('/full-custom')}>Full-custom builder</Button><Button variant={location.pathname === '/semi/subform' ? 'filled' : 'light'} onClick={() => navigate('/semi/subform')}>Subform templates</Button><Button variant={location.pathname === '/semi/care-plan' ? 'filled' : 'light'} onClick={() => navigate('/semi/care-plan')}>Care-plan templates</Button></Stack></AppShell.Navbar><AppShell.Main><Group justify="space-between" mb="lg"><Box><Title order={2}>{title}</Title><Text c="dimmed">Support at Home service-template workspace</Text></Box><Badge color="violet">semi-custom</Badge></Group>{children}</AppShell.Main></AppShell>;
+}
+
+export function Landing() {
+  return <Box maw={760} mx="auto" p="xl"><Title order={1}>Choose a form-authoring approach</Title><Text c="dimmed" mb="xl">Build fully flexible JSON-schema forms, or compose a structured Support at Home care plan from reusable subforms.</Text><SimpleGrid cols={{ base: 1, sm: 2 }}><Paper p="xl" withBorder><Title order={3}>Full-custom</Title><Text mb="md">Use the field canvas, layouts, tabs, and conditional logic.</Text><Button onClick={() => navigate('/full-custom')}>Open full-custom builder</Button></Paper><Paper p="xl" withBorder><Title order={3}>Semi-custom</Title><Text mb="md">Manage SERV subforms separately, then create a care plan from active templates.</Text><Group><Button onClick={() => navigate('/semi/subform')}>Manage subforms</Button><Button variant="light" onClick={() => navigate('/semi/care-plan')}>Create care plan</Button></Group></Paper></SimpleGrid></Box>;
+}
+
+export function SubformWorkspace() {
+  const [templates, setTemplates] = useState<SemiSubformTemplate[]>([]);
+  const [name, setName] = useState(''); const [active, setActive] = useState(true); const [schedule, setSchedule] = useState(false); const [timeFormat, setTimeFormat] = useState<'start-end' | 'duration'>('start-end'); const [itemList, setItemList] = useState(false); const [columns, setColumns] = useState<string[]>(['Item Category', 'Description', 'Frequency']); const [sections, setSections] = useState<Record<string, boolean>>({ careNeeds: true, participantGoals: true, remarks: true }); const [message, setMessage] = useState<string>();
+  const refresh = () => api<SemiSubformTemplate[]>('/api/semi/subforms').then(setTemplates).catch((error) => setMessage(error.message));
+  useEffect(() => { void refresh(); }, []);
+  const save = async () => { if (!name.trim()) return setMessage('A subform name is required.'); const configuration: SemiSubformConfiguration = { ...(schedule ? { schedule: { timeFormat } } : {}), ...(itemList ? { itemList: { columns } } : {}), sections }; try { await api('/api/semi/subforms', { method: 'POST', body: JSON.stringify({ name, active, configuration }) }); setName(''); setSchedule(false); setItemList(false); setSections({ careNeeds: true, participantGoals: true, remarks: true }); setMessage('Subform template saved.'); refresh(); } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not save subform.'); } };
+  const toggle = async (template: SemiSubformTemplate) => { try { await api(`/api/semi/subforms/${template.id}`, { method: 'PATCH', body: JSON.stringify({ active: !template.active }) }); refresh(); } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not update subform.'); } };
+  return <Shell title="SERV subform templates"><SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg"><Paper p="md" withBorder><Title order={4}>Create subform template</Title><TextInput label="Template name" value={name} onChange={(event) => setName(event.currentTarget.value)} placeholder="Nursing – Wound Care" mt="md" /><Switch label="Active for care-plan assignment" checked={active} onChange={(event) => setActive(event.currentTarget.checked)} mt="md" /><Checkbox label="Schedule" checked={schedule} onChange={(event) => setSchedule(event.currentTarget.checked)} mt="md" />{schedule && <Select label="Time format" data={[{ value: 'start-end', label: 'Start–end time' }, { value: 'duration', label: 'Duration (hours)' }]} value={timeFormat} onChange={(value) => setTimeFormat(value as 'start-end' | 'duration')} mt="xs" />}<Checkbox label="Item list" checked={itemList} onChange={(event) => setItemList(event.currentTarget.checked)} mt="md" />{itemList && <Checkbox.Group label="Item-list columns" value={columns} onChange={setColumns} mt="xs"><Group mt="xs">{['Item Category', 'Description', 'Amount', 'Unit Type', 'Frequency'].map((column) => <Checkbox key={column} value={column} label={column} />)}</Group></Checkbox.Group>}<Divider my="md" /><Text fw={600}>Narrative sections</Text><Stack gap="xs" mt="xs">{Object.entries(sectionLabels).map(([key, label]) => <Checkbox key={key} label={label} checked={Boolean(sections[key])} onChange={(event) => setSections({ ...sections, [key]: event.currentTarget.checked })} />)}</Stack><Button mt="lg" onClick={() => void save()}>Save subform</Button></Paper><Paper p="md" withBorder><Group justify="space-between"><Title order={4}>Template library</Title><Badge>{templates.length}</Badge></Group><Stack mt="md">{templates.map((template) => <Paper key={template.id} p="sm" withBorder><Group justify="space-between"><Box><Text fw={600}>{template.name}</Text><Text size="xs" c="dimmed">{template.createdAt?.slice(0, 10)}</Text></Box><Switch label="Active" checked={template.active} onChange={() => void toggle(template)} /></Group></Paper>)}{!templates.length && <Text c="dimmed">Create a reusable subform template to begin.</Text>}</Stack></Paper></SimpleGrid>{message && <Alert mt="lg" color="violet">{message}</Alert>}</Shell>;
+}
+
+export function CarePlanWorkspace() {
+  const [subforms, setSubforms] = useState<SemiSubformTemplate[]>([]);
+  const [name, setName] = useState('Untitled Support at Home plan');
+  const [structure, setStructure] = useState<SemiCarePlanTemplate['structure']>('consolidated');
+  const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
+  const [participant, setParticipant] = useState<string[]>(['Full Legal Name & Preferred Name']);
+  const [general, setGeneral] = useState<Record<string, string[]>>({ health: ['Weight / Height / BMI', 'Mobility', 'Allergies, Diet & Fluids'], support: [], emergency: [] });
+  const [servInfo, setServInfo] = useState<Record<string, boolean>>({ schedule: true, itemList: true, careNeeds: true, participantGoals: true, remarks: true });
+  const [assigned, setAssigned] = useState<Record<string, string>>({});
+  const [activeStep, setActiveStep] = useState('structure');
+  const [message, setMessage] = useState<string>();
+
+  useEffect(() => { api<SemiSubformTemplate[]>('/api/semi/subforms?active=true').then(setSubforms).catch((error) => setMessage(error.message)); }, []);
+
+  const selectedServices = services.filter((service) => selectedCodes.includes(service.code));
+  const needsAssignments = structure !== 'consolidated';
+  const hasServInfo = structure !== 'per-serv';
+  const steps = [
+    { key: 'structure', label: 'Template Structure', description: 'Pick a structure' },
+    { key: 'services', label: 'SERV Config', description: 'Choose services' },
+    { key: 'participant', label: 'Participant Details', description: 'Choose fields' },
+    { key: 'general', label: 'General Info', description: 'Health & support fields' },
+    ...(hasServInfo ? [{ key: 'serv-info', label: 'SERV Info', description: 'Consolidated content' }] : []),
+    ...(needsAssignments ? [{ key: 'assignment', label: 'SERV Assignment', description: 'Link subform templates' }] : []),
+    { key: 'summary', label: 'Template JSON', description: 'Review and save' },
+  ];
+  const currentStep = Math.max(0, steps.findIndex((step) => step.key === activeStep));
+  const currentKey = steps[currentStep].key;
+  const isSummary = currentKey === 'summary';
+  const carePlan = useMemo<SemiCarePlanTemplate>(() => ({
+    name,
+    structure,
+    services: selectedServices,
+    participantFields: participant,
+    generalInfo: general,
+    ...(hasServInfo ? { servInfo } : {}),
+    ...(needsAssignments ? { assignments: selectedServices.flatMap((service) => {
+      const subform = subforms.find((template) => template.id === assigned[service.code]);
+      return subform ? [{ serviceCode: service.code, subform: { id: subform.id!, name: subform.name, configuration: subform.configuration } }] : [];
+    }) } : {}),
+  }), [name, structure, selectedServices, participant, general, hasServInfo, servInfo, needsAssignments, subforms, assigned]);
+
+  const chooseStructure = (value: SemiCarePlanTemplate['structure']) => {
+    setStructure(value);
+    setActiveStep('structure');
+  };
+  const save = async () => {
+    if (needsAssignments && selectedServices.some((service) => !assigned[service.code])) return setMessage('Assign an active subform to every selected SERV.');
+    try {
+      const saved = await api<SemiCarePlanTemplate>('/api/semi/care-plans', { method: 'POST', body: JSON.stringify(carePlan) });
+      setMessage(`Saved “${saved.name}” as self-contained JSON.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not save care plan.');
+    }
+  };
+
+  const content = {
+    structure: <Stack><Title order={3}>Template Structure</Title><Text c="dimmed">Choose how this service template is organised. The structure controls which authoring steps apply.</Text><TextInput label="Care-plan name" value={name} onChange={(event) => setName(event.currentTarget.value)} /><SimpleGrid cols={{ base: 1, md: 3 }}><Paper role="button" tabIndex={0} p="md" withBorder data-active={structure === 'per-serv' || undefined} onClick={() => chooseStructure('per-serv')} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') chooseStructure('per-serv'); }}><Title order={4}>Per-SERV</Title><Text size="sm" c="dimmed">Service content and scheduling live in each assigned subform.</Text><Text size="xs" mt="sm">SERV Config → Participant Details → General Info → SERV Assignment</Text></Paper><Paper role="button" tabIndex={0} p="md" withBorder data-active={structure === 'consolidated' || undefined} onClick={() => chooseStructure('consolidated')} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') chooseStructure('consolidated'); }}><Title order={4}>Consolidated</Title><Text size="sm" c="dimmed">One shared SERV Info section covers all selected services.</Text><Text size="xs" mt="sm">SERV Config → Participant Details → General Info → SERV Info</Text></Paper><Paper role="button" tabIndex={0} p="md" withBorder data-active={structure === 'hybrid' || undefined} onClick={() => chooseStructure('hybrid')} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') chooseStructure('hybrid'); }}><Title order={4}>Hybrid</Title><Text size="sm" c="dimmed">Shared SERV Info plus content from assigned service subforms.</Text><Text size="xs" mt="sm">SERV Config → Participant Details → General Info → SERV Info → SERV Assignment</Text></Paper></SimpleGrid></Stack>,
+    services: <Stack><Title order={3}>SERV Configuration</Title><Text c="dimmed">Select the services this template covers. Selections determine the assignment rows when required.</Text>{services.map((service) => <Checkbox key={service.code} label={`${service.code} · ${service.name}`} checked={selectedCodes.includes(service.code)} onChange={(event) => setSelectedCodes(event.currentTarget.checked ? [...selectedCodes, service.code] : selectedCodes.filter((code) => code !== service.code))} />)}</Stack>,
+    participant: <Stack><Title order={3}>Participant Details</Title><Checkbox.Group value={participant} onChange={setParticipant}><Stack>{participantFields.map((field) => <Checkbox key={field} value={field} label={field} disabled={field === 'Full Legal Name & Preferred Name'} />)}</Stack></Checkbox.Group></Stack>,
+    general: <Stack><Title order={3}>General Info</Title><Tabs defaultValue="health"><Tabs.List><Tabs.Tab value="health">Health Summary</Tabs.Tab><Tabs.Tab value="support">Support</Tabs.Tab><Tabs.Tab value="emergency">Emergency</Tabs.Tab></Tabs.List>{Object.entries(generalFields).map(([key, fields]) => <Tabs.Panel key={key} value={key} pt="sm"><Checkbox.Group value={general[key] ?? []} onChange={(values) => setGeneral({ ...general, [key]: values })}><Stack>{fields.map((field) => <Checkbox key={field} value={field} label={field} />)}</Stack></Checkbox.Group></Tabs.Panel>)}</Tabs></Stack>,
+    'serv-info': <Stack><Title order={3}>SERV Info</Title><Text c="dimmed">Configure shared content that applies to every selected service.</Text>{Object.entries(sectionLabels).map(([key, label]) => <Checkbox key={key} label={label} checked={Boolean(servInfo[key])} onChange={(event) => setServInfo({ ...servInfo, [key]: event.currentTarget.checked })} />)}<Checkbox label="Consolidated schedule" checked={Boolean(servInfo.schedule)} onChange={(event) => setServInfo({ ...servInfo, schedule: event.currentTarget.checked })} /><Checkbox label="Consolidated item list" checked={Boolean(servInfo.itemList)} onChange={(event) => setServInfo({ ...servInfo, itemList: event.currentTarget.checked })} /></Stack>,
+    assignment: <Stack><Title order={3}>SERV Assignment</Title><Text c="dimmed">Assign an active reusable subform to each selected service.</Text>{!subforms.length && <Alert color="yellow">No active subforms. Create or activate one in the subform workspace.</Alert>}<Stack>{selectedServices.map((service) => <Select key={service.code} label={`${service.code} · ${service.name}`} placeholder="Select active subform" data={subforms.map((template) => ({ value: template.id!, label: template.name }))} value={assigned[service.code] ?? null} onChange={(value) => setAssigned({ ...assigned, [service.code]: value ?? '' })} />)}{!selectedServices.length && <Text c="dimmed">No SERVs selected yet — return to SERV Config to choose services.</Text>}</Stack></Stack>,
+    summary: <Stack><Group justify="space-between"><Box><Title order={3}>Generated care plan</Title><Text c="dimmed">Review the self-contained configuration before saving.</Text></Box><Button onClick={() => void save()}>Save care plan</Button></Group><JsonInput value={JSON.stringify(carePlan, null, 2)} formatOnBlur autosize minRows={22} readOnly /></Stack>,
+  } as const;
+
+  return <Shell title="Semi-custom care-plan template"><Grid gap="xl"><Grid.Col span={{ base: 12, lg: 3 }}><Stepper active={currentStep} orientation="vertical" onStepClick={(step) => { if (step <= currentStep) setActiveStep(steps[step].key); }}>{steps.map((step) => <Stepper.Step key={step.key} label={step.label} description={step.description} />)}</Stepper></Grid.Col><Grid.Col span={{ base: 12, lg: 9 }}><Stack><Paper p="lg" withBorder>{content[currentKey as keyof typeof content]}</Paper><Group justify="space-between"><Button variant="default" disabled={currentStep === 0} onClick={() => setActiveStep(steps[currentStep - 1].key)}>Back</Button>{!isSummary && <Button onClick={() => setActiveStep(steps[currentStep + 1].key)}>Next</Button>}</Group></Stack></Grid.Col></Grid>{message && <Alert mt="lg" color="violet">{message}</Alert>}</Shell>;
+}

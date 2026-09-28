@@ -3,6 +3,6 @@ import { createRoot } from 'react-dom/client';
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
 import './styles.css';
-import App from './App';
+import { Root } from './Root';
 
-createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
+createRoot(document.getElementById('root')!).render(<StrictMode><Root /></StrictMode>);

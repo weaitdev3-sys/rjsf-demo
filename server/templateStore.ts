@@ -1,6 +1,8 @@
-import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
+import { link, mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import type { TemplateDocument } from '../src/domain/templateSchema';
+import type { SemiCarePlanTemplate, SemiSubformTemplate } from '../src/domain/semiCustom';
 
 export function safeTemplateId(id: string): string {
   if (!/^[a-z0-9][a-z0-9_-]*$/i.test(id)) throw new Error('Invalid template id');
@@ -19,13 +21,33 @@ async function writeJson(directory: string, fileName: string, value: unknown) {
   await rename(temporary, target);
 }
 
+async function writeJsonIfAbsent(directory: string, fileName: string, value: unknown): Promise<boolean> {
+  await mkdir(directory, { recursive: true });
+  const target = path.join(directory, fileName);
+  const temporary = path.join(directory, `.${fileName}.${randomUUID()}.tmp`);
+  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  try {
+    await link(temporary, target);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false;
+    throw error;
+  } finally {
+    await unlink(temporary).catch(() => undefined);
+  }
+}
+
 export class TemplateStore {
   private readonly templatesDirectory: string;
   private readonly submissionsDirectory: string;
+  private readonly semiSubformsDirectory: string;
+  private readonly semiCarePlansDirectory: string;
 
   constructor(root = defaultStorageRoot()) {
     this.templatesDirectory = path.resolve(root, 'templates');
     this.submissionsDirectory = path.resolve(root, 'submissions');
+    this.semiSubformsDirectory = path.resolve(root, 'semi-subforms');
+    this.semiCarePlansDirectory = path.resolve(root, 'semi-care-plans');
   }
 
   async listTemplates(): Promise<TemplateDocument[]> {
@@ -67,5 +89,44 @@ export class TemplateStore {
     return Promise.all(files.filter((file) => file.endsWith('.json')).map(async (file) =>
       JSON.parse(await readFile(path.join(this.submissionsDirectory, file), 'utf8'))
     ));
+  }
+
+  async listSemiSubforms(activeOnly = false): Promise<SemiSubformTemplate[]> {
+    await mkdir(this.semiSubformsDirectory, { recursive: true });
+    const files = await readdir(this.semiSubformsDirectory);
+    const templates = await Promise.all(files.filter((file) => file.endsWith('.json')).map(async (file) => JSON.parse(await readFile(path.join(this.semiSubformsDirectory, file), 'utf8')) as SemiSubformTemplate));
+    return templates.filter((template) => template.id && template.name && typeof template.active === 'boolean' && template.configuration && (!activeOnly || template.active)).sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  async saveSemiSubform(template: SemiSubformTemplate): Promise<SemiSubformTemplate> {
+    const id = safeTemplateId(template.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+    const now = new Date().toISOString();
+    const saved = { ...template, id, createdAt: template.createdAt ?? now, updatedAt: now };
+    if (!await writeJsonIfAbsent(this.semiSubformsDirectory, `${id}.json`, saved)) throw new Error('A subform template with this name already exists');
+    return saved;
+  }
+
+  async updateSemiSubformActive(id: string, active: boolean): Promise<SemiSubformTemplate> {
+    const safeId = safeTemplateId(id);
+    const target = path.join(this.semiSubformsDirectory, `${safeId}.json`);
+    const existing = JSON.parse(await readFile(target, 'utf8')) as SemiSubformTemplate;
+    const saved = { ...existing, id: safeId, active, updatedAt: new Date().toISOString() };
+    await writeJson(this.semiSubformsDirectory, `${safeId}.json`, saved);
+    return saved;
+  }
+
+  async listSemiCarePlans(): Promise<SemiCarePlanTemplate[]> {
+    await mkdir(this.semiCarePlansDirectory, { recursive: true });
+    const files = await readdir(this.semiCarePlansDirectory);
+    const templates = await Promise.all(files.filter((file) => file.endsWith('.json')).map(async (file) => JSON.parse(await readFile(path.join(this.semiCarePlansDirectory, file), 'utf8') as string) as SemiCarePlanTemplate));
+    return templates.filter((template) => template.id && template.name && template.structure && Array.isArray(template.services)).sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  async saveSemiCarePlan(template: SemiCarePlanTemplate): Promise<SemiCarePlanTemplate> {
+    const id = safeTemplateId(template.id ?? template.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+    const now = new Date().toISOString();
+    const saved = { ...template, id, createdAt: template.createdAt ?? now, updatedAt: now };
+    await writeJson(this.semiCarePlansDirectory, `${id}.json`, saved);
+    return saved;
   }
 }
