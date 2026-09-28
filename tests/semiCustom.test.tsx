@@ -4,7 +4,7 @@ import { MantineProvider } from '@mantine/core';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
-import { CarePlanWorkspace } from '../src/SemiCustom';
+import { CarePlanWorkspace, SubformWorkspace } from '../src/SemiCustom';
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -88,9 +88,10 @@ describe('semi-custom care-plan workflow', () => {
 
     render(<MantineProvider><CarePlanWorkspace /></MantineProvider>);
 
-    fireEvent.click(screen.getByRole('button', { name: /Template JSON/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Review & save/ }));
 
-    expect(await screen.findByRole('heading', { name: 'Generated care plan' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Review & save' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View configuration JSON' })).toBeInTheDocument();
   });
 
   it('configures SERVs in a table with check-all controls', async () => {
@@ -104,5 +105,29 @@ describe('semi-custom care-plan workflow', () => {
     expect(screen.getAllByRole('checkbox', { checked: true })).toHaveLength(11);
     fireEvent.click(screen.getByRole('button', { name: 'Uncheck all SERVs' }));
     expect(screen.getAllByRole('checkbox', { checked: false })).toHaveLength(11);
+  });
+
+  it('filters SERVs by category without clearing selected services', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<MantineProvider><CarePlanWorkspace /></MantineProvider>);
+
+    fireEvent.click(screen.getByRole('button', { name: /SERV Config/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /DOM-01/ }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'SERV category' }), { target: { value: 'Nursing' } });
+
+    expect(screen.getByText('Wound Care')).toBeInTheDocument();
+    expect(screen.queryByText('General Household Cleaning')).not.toBeInTheDocument();
+    expect(screen.getByText('1 of 11 SERVs selected')).toBeInTheDocument();
+  });
+
+  it('shows subform configuration summaries and assignment guidance', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [{ id: 'nursing', name: 'Nursing visit', active: true, configuration: { schedule: { timeFormat: 'duration' }, itemList: { columns: ['Description', 'Frequency'] }, sections: { careNeeds: true, remarks: true } } }] }));
+    render(<MantineProvider><SubformWorkspace /></MantineProvider>);
+
+    expect(await screen.findByText('Only active subforms can be assigned to Per-SERV and Hybrid care plans.')).toBeInTheDocument();
+    await screen.findByText('Nursing visit');
+    expect(screen.getByText('Duration (hours)')).toBeInTheDocument();
+    expect(screen.getByText('Item list · 2 columns')).toBeInTheDocument();
+    expect(screen.getByText('2 narrative sections')).toBeInTheDocument();
   });
 });
