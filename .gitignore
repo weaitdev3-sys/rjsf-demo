@@ -4,3 +4,6 @@ submissions/
 *.tsbuildinfo
 *.log
 template-builder.html
+responses/
+semi-care-plans/
+semi-subforms/
