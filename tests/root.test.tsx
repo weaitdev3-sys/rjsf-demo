@@ -41,7 +41,7 @@ describe('application routes', () => {
 
     expect(await screen.findByRole('heading', { name: 'Saved responses' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'New full-custom template' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New full-custom template' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Care-plan templates' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Saved responses' })).toHaveAttribute('data-variant', 'filled');
   });
