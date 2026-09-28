@@ -194,10 +194,46 @@ describe('form builder', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Add two-column' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field to left column' }));
+    fireEvent.click(screen.getByRole('button', { name: '← Back to two-column layout' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add email to right column' }));
 
     expect(screen.getByText('Untitled Text field')).toBeInTheDocument();
     expect(screen.getByText('Untitled Email')).toBeInTheDocument();
+  });
+
+  it('edits a field selected from a two-column layout', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add two-column' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add text field to left column' }));
+    fireEvent.click(screen.getByText('Untitled Text field'));
+
+    const label = screen.getByLabelText('Field label');
+    expect(label).toHaveValue('Untitled Text field');
+    fireEvent.change(label, { target: { value: 'Preferred name' } });
+
+    expect(screen.getByText('Preferred name')).toBeInTheDocument();
+  });
+
+  it('authors tabs and edits fields in the active tab', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add tabs' }));
+    expect(screen.getByRole('tab', { name: 'Tab 1' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Tab 2' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add tab' }));
+    fireEvent.change(screen.getByLabelText('Tab label'), { target: { value: 'Contact details' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add text field to tab' }));
+
+    const label = screen.getByLabelText('Field label');
+    expect(label).toHaveValue('Untitled Text field');
+    fireEvent.change(label, { target: { value: 'Preferred name' } });
+
+    expect(screen.getByText('Preferred name')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '← Back to tabs' }));
+    expect(screen.getByRole('tab', { name: 'Contact details' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('renders static text in fill mode without creating a response field', async () => {
@@ -244,6 +280,7 @@ describe('form builder', () => {
     fireEvent.change(await screen.findByLabelText('Template name'), { target: { value: 'Layout form' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add two-column' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field to left column' }));
+    fireEvent.click(screen.getByRole('button', { name: '← Back to two-column layout' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add email to right column' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
     fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Required after columns' } });

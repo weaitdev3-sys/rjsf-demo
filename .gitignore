@@ -3,3 +3,4 @@ dist/
 submissions/
 *.tsbuildinfo
 *.log
+template-builder.html
