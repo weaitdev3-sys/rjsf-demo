@@ -37,4 +37,45 @@ describe('template API', () => {
     expect(submitResponse.status).toBe(201);
     expect(submitResponse.body.formData).toEqual({ name: 'Ari' });
   });
+
+  it('renders a saved template and form data as printable HTML', async () => {
+    const storageRoot = await mkdtemp(path.join(os.tmpdir(), 'form-builder-'));
+    temporaryDirectories.push(storageRoot);
+    const app = createApp(storageRoot);
+
+    await request(app).post('/api/templates').send({
+      name: 'Contact form',
+      fields: [{ id: 'name', kind: 'text', label: 'Name' }],
+      schema: { title: 'Contact form', type: 'object', properties: { name: { type: 'string', title: 'Name' } } },
+      uiSchema: {}
+    });
+
+    const response = await request(app).post('/api/templates/contact-form/print').send({ formData: { name: 'Ari' } });
+
+    expect(response.status).toBe(200);
+    expect(response.type).toBe('text/html');
+    expect(response.text).toContain('Contact form');
+    expect(response.text).toContain('Ari');
+  });
+
+  it('requires form data for a print request', async () => {
+    const storageRoot = await mkdtemp(path.join(os.tmpdir(), 'form-builder-'));
+    temporaryDirectories.push(storageRoot);
+    const app = createApp(storageRoot);
+
+    const response = await request(app).post('/api/templates/contact-form/print').send({});
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'formData is required' });
+  });
+
+  it('returns not found when the printable template does not exist', async () => {
+    const storageRoot = await mkdtemp(path.join(os.tmpdir(), 'form-builder-'));
+    temporaryDirectories.push(storageRoot);
+    const app = createApp(storageRoot);
+
+    const response = await request(app).post('/api/templates/missing/print').send({ formData: {} });
+
+    expect(response.status).toBe(404);
+  });
 });

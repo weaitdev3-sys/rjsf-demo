@@ -49,6 +49,32 @@ describe('form builder', () => {
     expect(screen.getAllByRole('button', { name: 'Save response' })).toHaveLength(1);
   });
 
+  it('opens a printable document for the current filled response', async () => {
+    const printWindow = { document: { write: vi.fn(), close: vi.fn() }, print: vi.fn() };
+    vi.spyOn(window, 'open').mockReturnValue(printWindow as unknown as Window);
+    const fetchMock = vi.fn().mockImplementation(async (url: string, options?: RequestInit) => {
+      if (url === '/api/templates/printable-form/print') return { ok: true, text: async () => '<html>Printable form</html>' };
+      return { ok: true, json: async () => url === '/api/templates' && options?.method === 'POST' ? { id: 'printable-form', name: 'Printable form' } : [] };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<App />);
+
+    fireEvent.change(await screen.findByLabelText('Template name'), { target: { value: 'Printable form' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
+    fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Name' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
+    await screen.findByText('Saved “Printable form”');
+    fireEvent.click(screen.getByRole('button', { name: 'Fill form' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Ari' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Print / Save as PDF' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/templates/printable-form/print', expect.objectContaining({ method: 'POST', body: expect.stringContaining('Ari') })));
+    expect(printWindow.document.write).toHaveBeenCalledWith('<html>Printable form</html>');
+    expect(printWindow.document.close).toHaveBeenCalled();
+    expect(printWindow.print).toHaveBeenCalled();
+  });
+
   it('creates pages and keeps their fields separate in the builder', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);

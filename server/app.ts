@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { TemplateDocument } from '../src/domain/templateSchema';
+import { renderPrintableHtml } from './printRenderer';
 import { TemplateStore } from './templateStore';
 
 export function resolveStaticDirectory(moduleUrl: string): string {
@@ -26,6 +27,14 @@ export function createApp(storageRoot?: string) {
       const template = request.body as TemplateDocument;
       if (!template.name || !template.schema || !template.uiSchema) return response.status(400).json({ error: 'name, schema and uiSchema are required' });
       response.status(201).json(await store.saveTemplate(template));
+    } catch (error) { next(error); }
+  });
+  app.post('/api/templates/:id/print', async (request, response, next) => {
+    try {
+      const { formData } = request.body as { formData?: unknown };
+      if (formData === undefined) return response.status(400).json({ error: 'formData is required' });
+      const template = await store.getTemplate(request.params.id);
+      response.type('html').send(renderPrintableHtml(template, formData));
     } catch (error) { next(error); }
   });
   app.get('/api/submissions', async (_request, response, next) => {
