@@ -40,6 +40,8 @@ describe('application routes', () => {
     render(<Root />);
 
     expect(await screen.findByRole('heading', { name: 'Saved responses' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New full-custom template' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Care-plan templates' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Saved responses' })).toHaveAttribute('data-variant', 'filled');
   });
