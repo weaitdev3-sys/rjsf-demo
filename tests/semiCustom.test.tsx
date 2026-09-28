@@ -35,8 +35,11 @@ describe('semi-custom care-plan workflow', () => {
     expect(screen.getByText('Per-SERV')).toBeInTheDocument();
     expect(screen.getByText('Consolidated')).toBeInTheDocument();
     expect(screen.getByText('Hybrid')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Per-SERV/ })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getAllByTestId('workflow-chip')).toHaveLength(13);
 
-    fireEvent.click(screen.getByRole('button', { name: /Per-SERV/ }));
+    fireEvent.click(screen.getByRole('radio', { name: /Per-SERV/ }));
+    expect(screen.getByRole('radio', { name: /Per-SERV/ })).toHaveAttribute('aria-checked', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.click(screen.getByRole('checkbox', { name: /DOM-01/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
@@ -52,7 +55,7 @@ describe('semi-custom care-plan workflow', () => {
 
     render(<MantineProvider><CarePlanWorkspace /></MantineProvider>);
 
-    fireEvent.click(screen.getByRole('button', { name: /Hybrid/ }));
+    fireEvent.click(screen.getByRole('radio', { name: /Hybrid/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.click(screen.getByRole('checkbox', { name: /DOM-01/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
@@ -70,7 +73,7 @@ describe('semi-custom care-plan workflow', () => {
 
     render(<MantineProvider><CarePlanWorkspace /></MantineProvider>);
 
-    fireEvent.click(screen.getByRole('heading', { name: 'Consolidated' }).closest('[role="button"]')!);
+    fireEvent.click(screen.getByRole('radio', { name: /Consolidated/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
@@ -78,5 +81,28 @@ describe('semi-custom care-plan workflow', () => {
 
     expect(screen.getByRole('heading', { name: 'SERV Info' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'SERV Assignment' })).not.toBeInTheDocument();
+  });
+
+  it('allows free navigation to every visible authoring step', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+
+    render(<MantineProvider><CarePlanWorkspace /></MantineProvider>);
+
+    fireEvent.click(screen.getByRole('button', { name: /Template JSON/ }));
+
+    expect(await screen.findByRole('heading', { name: 'Generated care plan' })).toBeInTheDocument();
+  });
+
+  it('configures SERVs in a table with check-all controls', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+
+    render(<MantineProvider><CarePlanWorkspace /></MantineProvider>);
+
+    fireEvent.click(screen.getByRole('button', { name: /SERV Config/ }));
+    expect(await screen.findByRole('table', { name: 'SERV configuration' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Check all SERVs' }));
+    expect(screen.getAllByRole('checkbox', { checked: true })).toHaveLength(11);
+    fireEvent.click(screen.getByRole('button', { name: 'Uncheck all SERVs' }));
+    expect(screen.getAllByRole('checkbox', { checked: false })).toHaveLength(11);
   });
 });

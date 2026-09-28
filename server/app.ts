@@ -6,6 +6,7 @@ import type { SemiCarePlanTemplate, SemiSubformTemplate } from '../src/domain/se
 import { isSemiCarePlanResponseData, type ResponseKind } from '../src/domain/response';
 import { renderPrintableHtml } from './printRenderer';
 import { renderSemiCarePlanHtml } from './semiPrintRenderer';
+import { renderResponseHtml } from './responseRenderer';
 import { TemplateStore } from './templateStore';
 
 export function resolveStaticDirectory(moduleUrl: string): string {
@@ -57,6 +58,9 @@ export function createApp(storageRoot?: string) {
   });
   app.get('/api/semi/care-plans/:id/html', async (request, response, next) => {
     try { response.type('html').send(renderSemiCarePlanHtml(await store.getSemiCarePlan(request.params.id))); } catch (error) { next(error); }
+  });
+  app.get('/api/semi/care-plans/:id', async (request, response, next) => {
+    try { response.json(await store.getSemiCarePlan(request.params.id)); } catch (error) { next(error); }
   });
   app.post('/api/semi/care-plans', async (request, response, next) => {
     try {
@@ -136,6 +140,9 @@ export function createApp(storageRoot?: string) {
       if (existing.kind === 'semi-care-plan' && !isSemiCarePlanResponseData(request.body.formData)) return response.status(400).json({ error: 'Invalid semi-care-plan response data' });
       response.json(await store.updateResponse(request.params.id, request.body.formData));
     } catch (error) { next(error); }
+  });
+  app.get('/api/responses/:id/html', async (request, response, next) => {
+    try { response.type('html').send(renderResponseHtml(await store.getResponse(request.params.id))); } catch (error) { next(error); }
   });
   app.get('/{*splat}', (_request, response) => {
     response.sendFile(path.join(staticDirectory, 'index.html'));

@@ -5,6 +5,7 @@ import validator from '@rjsf/validator-ajv8';
 import type { RJSFSchema, UiSchema } from '@rjsf/utils';
 import type { EditableField, FieldKind, FieldVisibilityClause, FormLayout, ListRowVisibilityClause, ListVisibilityClause, TemplateDocument, TemplatePage, VisibilityClause, VisibilityExpression, VisibilityExpressionGroup, VisibilityGroup, VisibilityOperator, VisibilityRule } from './domain/templateSchema';
 import { buildFieldKeyMap, buildTemplateDocument, clearVisibilityReferences, evaluateVisibleFields, pruneHiddenValues, propertyName } from './domain/templateSchema';
+import type { FullCustomResponse } from './domain/response';
 
 type TemplateSummary = TemplateDocument & { id: string };
 // The palette and settings type selector share this single source of field labels.
@@ -169,6 +170,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export default function App() {
+  const responseId = location.pathname.match(/^\/full-custom\/response\/([^/]+)$/)?.[1] ?? null;
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [name, setName] = useState('Untitled form');
   const [fields, setFields] = useState<EditableField[]>([]);
@@ -216,7 +218,15 @@ export default function App() {
   const clearChildSelection = () => { setSelectedChildIndex(null); setSelectedChildLocation(null); };
 
   const refresh = async () => { try { setTemplates(await api<TemplateSummary[]>('/api/templates')); } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not load templates'); } };
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => {
+    void refresh();
+    if (!responseId) return;
+    void api<FullCustomResponse>(`/api/responses/${responseId}`).then((response) => {
+      const template = response.templateSnapshot;
+      const loadedPages = template.pages?.length ? template.pages : [{ id: 'page-1', title: 'Page 1', fields: template.fields ?? [] }];
+      setOpenedId(template.id ?? response.templateId); setName(template.name); setPages(loadedPages); setFormLayout(template.formLayout ?? { kind: 'flat' }); setActivePage(0); setFillPage(0); setFields(loadedPages[0].fields); setFillData(response.formData); setMode('fill');
+    }).catch((error) => setMessage(error instanceof Error ? error.message : 'Could not open response'));
+  }, [responseId]);
   const updateField = (patch: Partial<EditableField>) => {
     if (selectedIndex === null) return;
     setFields((current) => current.map((field, index) => {
@@ -368,10 +378,16 @@ export default function App() {
   const submit = async ({ formData }: { formData?: unknown }) => {
     // Prune stale hidden values immediately before persistence as the final guard.
     if (!openedId) { setMessage('Save this form before collecting responses.'); return; }
-    try { await api('/api/submissions', { method: 'POST', body: JSON.stringify({ templateId: openedId, formData: pruneHiddenValues(fields, formData ?? fillData) }) }); setMessage('Response saved locally.'); }
+    try {
+      const savedData = pruneHiddenValues(allPageFields, formData ?? fillData);
+      if (responseId) await api(`/api/responses/${responseId}`, { method: 'PATCH', body: JSON.stringify({ formData: savedData }) });
+      else await api('/api/responses', { method: 'POST', body: JSON.stringify({ kind: 'full-custom', templateId: openedId, formData: savedData }) });
+      setMessage(responseId ? 'Saved response updated.' : 'Response saved.');
+    }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Could not save response'); }
   };
   const print = async () => {
+    if (responseId) { window.open(`/api/responses/${responseId}/html`, '_blank'); return; }
     if (!openedId) { setMessage('Save this form before printing.'); return; }
     const printWindow = window.open('', '_blank');
     if (!printWindow) { setMessage('Allow pop-ups to print this form.'); return; }

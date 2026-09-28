@@ -1,10 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { renderPrintableHtml } from '../server/printRenderer';
 import { renderSemiCarePlanHtml } from '../server/semiPrintRenderer';
+import { renderResponseHtml } from '../server/responseRenderer';
 import type { TemplateDocument } from '../src/domain/templateSchema';
 import type { SemiCarePlanTemplate } from '../src/domain/semiCustom';
 
 describe('print renderer', () => {
+  it('renders saved response snapshots with escaped entered values', () => {
+    const html = renderResponseHtml({
+      id: 'response-1', kind: 'full-custom', templateId: 'intake', templateName: 'Intake', createdAt: '', updatedAt: '',
+      templateSnapshot: { name: 'Intake', fields: [{ id: 'name', kind: 'text', label: 'Name' }], schema: { type: 'object', properties: {} }, uiSchema: {} },
+      formData: { name: '<script>alert(1)</script>' },
+    });
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(html).not.toContain('<script>alert(1)</script>');
+  });
+
   it('renders a saved Per-SERV care-plan snapshot as printable HTML', () => {
     const carePlan: SemiCarePlanTemplate = {
       name: 'Home support plan',

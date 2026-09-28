@@ -328,6 +328,6 @@ describe('form builder', () => {
 
     fireEvent.change(screen.getByLabelText(/Required after columns/), { target: { value: 'Done' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save response' }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/submissions', expect.objectContaining({ method: 'POST', body: expect.stringContaining('right@example.test') })));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/responses', expect.objectContaining({ method: 'POST', body: expect.stringContaining('right@example.test') })));
   });
 });

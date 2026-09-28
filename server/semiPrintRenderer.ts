@@ -1,5 +1,6 @@
 import Handlebars from 'handlebars';
 import type { SemiCarePlanTemplate, SemiSubformConfiguration } from '../src/domain/semiCustom';
+import type { SemiCarePlanResponseData } from '../src/domain/response';
 
 type RenderedService = {
   label: string;
@@ -15,6 +16,7 @@ type SemiPrintDocument = {
   generalInfo: { label: string; fields: string[] }[];
   sharedServInfo: string[];
   services: RenderedService[];
+  savedValues?: string;
 };
 
 const sectionLabels: Record<string, string> = {
@@ -52,6 +54,7 @@ const pageTemplate = Handlebars.compile(`<!doctype html>
 {{#each generalInfo}}<section><h2>{{label}}</h2><ul class="field-list">{{#each fields}}<li>{{this}}</li>{{/each}}</ul></section>{{/each}}
 {{#if sharedServInfo.length}}<section><h2>SERV Info</h2><ul class="field-list">{{#each sharedServInfo}}<li>{{this}}</li>{{/each}}</ul></section>{{/if}}
 {{#each services}}<section class="service"><h2>{{label}}</h2>{{#if subformName}}<div class="detail"><strong>Subform:</strong> {{subformName}}</div>{{/if}}{{#if schedule}}<div class="detail"><strong>Schedule:</strong> {{schedule}}</div>{{/if}}{{#if itemListColumns.length}}<div class="detail"><strong>Item list</strong><table><thead><tr>{{#each itemListColumns}}<th>{{this}}</th>{{/each}}</tr></thead><tbody><tr>{{#each itemListColumns}}<td></td>{{/each}}</tr></tbody></table></div>{{/if}}{{#if sections.length}}<div class="detail"><strong>Sections</strong><ul class="field-list">{{#each sections}}<li>{{this}}</li>{{/each}}</ul></div>{{/if}}</section>{{/each}}
+{{#if savedValues}}<section><h2>Saved response</h2><pre>{{savedValues}}</pre></section>{{/if}}
 </main></body></html>`);
 
 function mapSubform(configuration: SemiSubformConfiguration): Pick<RenderedService, 'schedule' | 'itemListColumns' | 'sections'> {
@@ -76,6 +79,6 @@ export function mapSemiCarePlanDocument(carePlan: SemiCarePlanTemplate): SemiPri
   };
 }
 
-export function renderSemiCarePlanHtml(carePlan: SemiCarePlanTemplate): string {
-  return pageTemplate(mapSemiCarePlanDocument(carePlan));
+export function renderSemiCarePlanHtml(carePlan: SemiCarePlanTemplate, formData?: SemiCarePlanResponseData): string {
+  return pageTemplate({ ...mapSemiCarePlanDocument(carePlan), ...(formData ? { savedValues: JSON.stringify(formData, null, 2) } : {}) });
 }
