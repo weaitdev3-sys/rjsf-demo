@@ -31,10 +31,37 @@ describe('form builder', () => {
 
     fireEvent.change(screen.getByRole('combobox', { name: 'Form layout' }), { target: { value: 'stepper' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add page' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Fill form' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview & fill' }));
 
     expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument();
     expect(screen.getByText('Step 1 of 2')).toBeInTheDocument();
+  });
+
+  it('groups less-common field types behind an expandable advanced palette', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    expect(await screen.findByRole('button', { name: 'Add text field' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add multi-select' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced fields' }));
+
+    expect(screen.getByRole('button', { name: 'Add multi-select' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add list input' })).toBeInTheDocument();
+  });
+
+  it('uses an explicit required field checkbox and opens the preview and fill mode', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add text field' }));
+    const requiredField = screen.getByRole('checkbox', { name: 'Required field' });
+    expect(requiredField).not.toBeChecked();
+    fireEvent.click(requiredField);
+    expect(requiredField).toBeChecked();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preview & fill' }));
+    expect(screen.getByRole('button', { name: 'Save response' })).toBeInTheDocument();
   });
 
   it('renders only the outer Save response submit control in fill mode', async () => {
@@ -43,7 +70,7 @@ describe('form builder', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Add text field' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add email' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Fill form' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview & fill' }));
 
     expect(screen.queryAllByRole('button', { name: 'Submit' })).toHaveLength(0);
     expect(screen.getAllByRole('button', { name: 'Save response' })).toHaveLength(1);
@@ -64,7 +91,7 @@ describe('form builder', () => {
     fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Name' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
     await screen.findByText('Saved “Printable form”');
-    fireEvent.click(screen.getByRole('button', { name: 'Fill form' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview & fill' }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Ari' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Print / Save as PDF' }));
@@ -91,8 +118,10 @@ describe('form builder', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced fields' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add multi-select' }));
     fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Approved services' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Layout' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add container' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
 
@@ -136,6 +165,7 @@ describe('form builder', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced fields' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add list input' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
@@ -147,6 +177,7 @@ describe('form builder', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced fields' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add list input' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
@@ -173,6 +204,7 @@ describe('form builder', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced fields' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add list input' }));
     expect(screen.getByText('Item fields')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Add date picker field' }));
@@ -184,6 +216,7 @@ describe('form builder', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Layout' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add container' }));
     expect(screen.getByText('Container fields')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Add email field' }));
@@ -195,6 +228,7 @@ describe('form builder', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced fields' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add list input' }));
 
     expect(screen.queryByRole('button', { name: 'Add container field' })).not.toBeInTheDocument();
@@ -204,8 +238,8 @@ describe('form builder', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
 
-    expect(await screen.findByText('Fields')).toBeInTheDocument();
-    expect(screen.getByText('Layout')).toBeInTheDocument();
+    expect(await screen.findByText('Common fields')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Layout' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add container' }));
 
     const showLabel = screen.getByLabelText('Show label');
@@ -218,6 +252,7 @@ describe('form builder', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Layout' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add two-column' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field to left column' }));
     fireEvent.click(screen.getByRole('button', { name: '← Back to two-column layout' }));
@@ -231,6 +266,7 @@ describe('form builder', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Layout' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add two-column' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field to left column' }));
     fireEvent.click(screen.getByText('Untitled Text field'));
@@ -246,6 +282,7 @@ describe('form builder', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Layout' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add tabs' }));
     expect(screen.getByRole('tab', { name: 'Tab 1' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Tab 2' })).toBeInTheDocument();
@@ -266,8 +303,9 @@ describe('form builder', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Layout' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add text' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Fill form' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview & fill' }));
 
     expect(screen.getByText('Text block')).toBeInTheDocument();
   });
@@ -278,13 +316,14 @@ describe('form builder', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Add text field' }));
     fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Before layout' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Layout' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text' }));
     fireEvent.change(screen.getByLabelText('Text content'), { target: { value: 'Inline guidance' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add heading' }));
     fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Middle heading' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
     fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'After layout' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Fill form' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview & fill' }));
 
     const before = screen.getByLabelText('Before layout');
     const guidance = screen.getByText('Inline guidance');
@@ -304,16 +343,17 @@ describe('form builder', () => {
     render(<App />);
 
     fireEvent.change(await screen.findByLabelText('Template name'), { target: { value: 'Layout form' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Layout' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add two-column' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field to left column' }));
     fireEvent.click(screen.getByRole('button', { name: '← Back to two-column layout' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add email to right column' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
     fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Required after columns' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Optional' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Required field' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
     await screen.findByText('Saved “Layout form”');
-    fireEvent.click(screen.getByRole('button', { name: 'Fill form' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview & fill' }));
 
     const left = screen.getByLabelText('Untitled Text field');
     const right = screen.getByLabelText('Untitled Email');

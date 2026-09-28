@@ -3,6 +3,7 @@ body { margin: 0; background: #f7f7fb; }
 .sidebar { background: #ffffff; border-right: 1px solid #e9e9f1; }
 .topbar { background: #ffffff; border-bottom: 1px solid #e9e9f1; }
 .workspace { align-items: start; }
+@media (min-width: 75em) { .field-settings { position: sticky; top: 1rem; } }
 .selected-field { border-color: var(--mantine-color-violet-5) !important; box-shadow: 0 0 0 2px var(--mantine-color-violet-1); }
 .container-children { border-left: 3px solid var(--mantine-color-violet-3); margin-left: 0.5rem; padding-left: 0.75rem; }
 .two-column-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; margin-top: 0.75rem; }
