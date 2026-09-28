@@ -1,8 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { buildFieldKeyMap, buildTemplateDocument, clearVisibilityReferences, evaluateVisibleFields, flattenTemplateFields, pruneHiddenValues, validateVisibilityRules, type EditableField, type TemplatePage } from '../src/domain/templateSchema';
 import { defaultStorageRoot, safeTemplateId } from '../server/templateStore';
+import { createEmptySemiCarePlanResponseData, isSemiCarePlanResponseData } from '../src/domain/response';
 
 describe('template document contract', () => {
+  it('creates care-plan response fields from its saved configuration and rejects non-string cell values', () => {
+    const template = {
+      id: 'home-support', name: 'Home support', structure: 'per-serv' as const,
+      services: [{ code: 'DOM-01', name: 'Domestic support', category: 'Domestic' }],
+      participantFields: ['Full Legal Name'], generalInfo: { health: ['Health Summary'] },
+      assignments: [{ serviceCode: 'DOM-01', subform: { id: 'domestic', name: 'Domestic', configuration: { itemList: { columns: ['Description'] }, sections: { remarks: true } } } }],
+    };
+
+    expect(createEmptySemiCarePlanResponseData(template)).toEqual({
+      participant: { 'Full Legal Name': '' }, generalInfo: { health: { 'Health Summary': '' } }, servInfo: {},
+      services: { 'DOM-01': { itemList: [{ Description: '' }], sections: { remarks: '' } } },
+    });
+    expect(isSemiCarePlanResponseData({ services: { 'DOM-01': { itemList: [{ Description: 1 }] } } })).toBe(false);
+  });
+
   it('uses the Railway volume when the process runs from /app', () => {
     expect(defaultStorageRoot('/app')).toBe('/app/data');
   });
