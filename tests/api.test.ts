@@ -6,23 +6,50 @@ import request from 'supertest';
 import { createApp, resolveStaticDirectory } from '../server/app';
 
 const temporaryDirectories: string[] = [];
-afterEach(async () => Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true }))));
+afterEach(async () =>
+  Promise.all(
+    temporaryDirectories
+      .splice(0)
+      .map((directory) => rm(directory, { recursive: true, force: true })),
+  ),
+);
 
 describe('template API', () => {
   it('creates, lists, and updates stable saved full-custom responses', async () => {
     const storageRoot = await mkdtemp(path.join(os.tmpdir(), 'form-builder-'));
     temporaryDirectories.push(storageRoot);
     const app = createApp(storageRoot);
-    const template = await request(app).post('/api/templates').send({ name: 'Response form', schema: { title: 'Response form', type: 'object', properties: {} }, uiSchema: {} });
+    const template = await request(app)
+      .post('/api/templates')
+      .send({
+        name: 'Response form',
+        schema: { title: 'Response form', type: 'object', properties: {} },
+        uiSchema: {},
+      });
 
-    const created = await request(app).post('/api/responses').send({ kind: 'full-custom', templateId: template.body.id, formData: { name: 'Ari' } });
-    const updated = await request(app).patch(`/api/responses/${created.body.id}`).send({ formData: { name: 'Bea' } });
-    const listed = await request(app).get('/api/responses?kind=full-custom&templateId=response-form');
+    const created = await request(app)
+      .post('/api/responses')
+      .send({ kind: 'full-custom', templateId: template.body.id, formData: { name: 'Ari' } });
+    const updated = await request(app)
+      .patch(`/api/responses/${created.body.id}`)
+      .send({ formData: { name: 'Bea' } });
+    const listed = await request(app).get(
+      '/api/responses?kind=full-custom&templateId=response-form',
+    );
 
     expect(created.status).toBe(201);
-    expect(created.body).toMatchObject({ kind: 'full-custom', templateId: 'response-form', templateName: 'Response form', formData: { name: 'Ari' } });
+    expect(created.body).toMatchObject({
+      kind: 'full-custom',
+      templateId: 'response-form',
+      templateName: 'Response form',
+      formData: { name: 'Ari' },
+    });
     expect(updated.status).toBe(200);
-    expect(updated.body).toMatchObject({ id: created.body.id, createdAt: created.body.createdAt, formData: { name: 'Bea' } });
+    expect(updated.body).toMatchObject({
+      id: created.body.id,
+      createdAt: created.body.createdAt,
+      formData: { name: 'Bea' },
+    });
     expect(listed.body).toEqual([expect.objectContaining({ id: created.body.id })]);
   });
 
@@ -30,11 +57,35 @@ describe('template API', () => {
     const storageRoot = await mkdtemp(path.join(os.tmpdir(), 'form-builder-'));
     temporaryDirectories.push(storageRoot);
     const app = createApp(storageRoot);
-    await request(app).post('/api/templates').send({ name: 'Response form', schema: { title: 'Response form', type: 'object', properties: {} }, uiSchema: {} });
-    const plan = await request(app).post('/api/semi/care-plans').send({ name: 'Care response', structure: 'consolidated', services: [] });
+    await request(app)
+      .post('/api/templates')
+      .send({
+        name: 'Response form',
+        schema: { title: 'Response form', type: 'object', properties: {} },
+        uiSchema: {},
+      });
+    const plan = await request(app)
+      .post('/api/semi/care-plans')
+      .send({ name: 'Care response', structure: 'consolidated', services: [] });
 
-    expect((await request(app).post('/api/responses').send({ kind: 'full-custom', templateId: 'response-form', formData: null })).status).toBe(400);
-    expect((await request(app).post('/api/responses').send({ kind: 'semi-care-plan', templateId: plan.body.id, formData: { participant: {}, generalInfo: 1, servInfo: {}, services: {} } })).status).toBe(400);
+    expect(
+      (
+        await request(app)
+          .post('/api/responses')
+          .send({ kind: 'full-custom', templateId: 'response-form', formData: null })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await request(app)
+          .post('/api/responses')
+          .send({
+            kind: 'semi-care-plan',
+            templateId: plan.body.id,
+            formData: { participant: {}, generalInfo: 1, servInfo: {}, services: {} },
+          })
+      ).status,
+    ).toBe(400);
   });
   it('resolves the production static directory from an ES module URL', () => {
     expect(resolveStaticDirectory('file:///app/server/app.ts')).toBe('/app/dist');
@@ -52,15 +103,23 @@ describe('template API', () => {
     temporaryDirectories.push(storageRoot);
     const app = createApp(storageRoot);
 
-    const saveResponse = await request(app).post('/api/templates').send({
-      name: 'Contact form',
-      schema: { title: 'Contact form', type: 'object', properties: { name: { type: 'string', title: 'Name' } } },
-      uiSchema: {}
-    });
+    const saveResponse = await request(app)
+      .post('/api/templates')
+      .send({
+        name: 'Contact form',
+        schema: {
+          title: 'Contact form',
+          type: 'object',
+          properties: { name: { type: 'string', title: 'Name' } },
+        },
+        uiSchema: {},
+      });
     expect(saveResponse.status).toBe(201);
     expect(saveResponse.body.id).toBe('contact-form');
 
-    const submitResponse = await request(app).post('/api/submissions').send({ templateId: 'contact-form', formData: { name: 'Ari' } });
+    const submitResponse = await request(app)
+      .post('/api/submissions')
+      .send({ templateId: 'contact-form', formData: { name: 'Ari' } });
     expect(submitResponse.status).toBe(201);
     expect(submitResponse.body.formData).toEqual({ name: 'Ari' });
   });
@@ -70,14 +129,22 @@ describe('template API', () => {
     temporaryDirectories.push(storageRoot);
     const app = createApp(storageRoot);
 
-    const active = await request(app).post('/api/semi/subforms').send({ name: 'Personal care', active: true, configuration: { careNeeds: true } });
-    await request(app).post('/api/semi/subforms').send({ name: 'Archived care', active: false, configuration: { remarks: true } });
+    const active = await request(app)
+      .post('/api/semi/subforms')
+      .send({ name: 'Personal care', active: true, configuration: { careNeeds: true } });
+    await request(app)
+      .post('/api/semi/subforms')
+      .send({ name: 'Archived care', active: false, configuration: { remarks: true } });
     const response = await request(app).get('/api/semi/subforms?active=true');
 
     expect(active.status).toBe(201);
     expect(response.status).toBe(200);
     expect(response.body).toHaveLength(1);
-    expect(response.body[0]).toMatchObject({ id: 'personal-care', name: 'Personal care', active: true });
+    expect(response.body[0]).toMatchObject({
+      id: 'personal-care',
+      name: 'Personal care',
+      active: true,
+    });
   });
 
   it('rejects a duplicate semi-custom subform name without replacing the existing library entry', async () => {
@@ -85,13 +152,33 @@ describe('template API', () => {
     temporaryDirectories.push(storageRoot);
     const app = createApp(storageRoot);
 
-    await request(app).post('/api/semi/subforms').send({ id: 'first-item-list', name: 'Item List', active: true, configuration: { itemList: { columns: ['Description'] } } });
-    const duplicate = await request(app).post('/api/semi/subforms').send({ id: 'second-item-list', name: 'item-list', active: false, configuration: { sections: { remarks: true } } });
+    await request(app)
+      .post('/api/semi/subforms')
+      .send({
+        id: 'first-item-list',
+        name: 'Item List',
+        active: true,
+        configuration: { itemList: { columns: ['Description'] } },
+      });
+    const duplicate = await request(app)
+      .post('/api/semi/subforms')
+      .send({
+        id: 'second-item-list',
+        name: 'item-list',
+        active: false,
+        configuration: { sections: { remarks: true } },
+      });
     const library = await request(app).get('/api/semi/subforms');
 
     expect(duplicate.status).toBe(409);
     expect(duplicate.body).toEqual({ error: 'A subform template with this name already exists' });
-    expect(library.body).toEqual([expect.objectContaining({ id: 'item-list', active: true, configuration: { itemList: { columns: ['Description'] } } })]);
+    expect(library.body).toEqual([
+      expect.objectContaining({
+        id: 'item-list',
+        active: true,
+        configuration: { itemList: { columns: ['Description'] } },
+      }),
+    ]);
   });
 
   it('allows only one concurrent semi-custom subform create for a normalized name', async () => {
@@ -100,8 +187,12 @@ describe('template API', () => {
     const app = createApp(storageRoot);
 
     const [first, second] = await Promise.all([
-      request(app).post('/api/semi/subforms').send({ name: 'Nursing', active: true, configuration: { sections: { careNeeds: true } } }),
-      request(app).post('/api/semi/subforms').send({ name: 'nursing', active: false, configuration: { sections: { remarks: true } } }),
+      request(app)
+        .post('/api/semi/subforms')
+        .send({ name: 'Nursing', active: true, configuration: { sections: { careNeeds: true } } }),
+      request(app)
+        .post('/api/semi/subforms')
+        .send({ name: 'nursing', active: false, configuration: { sections: { remarks: true } } }),
     ]);
 
     expect([first.status, second.status].sort()).toEqual([201, 409]);
@@ -113,29 +204,62 @@ describe('template API', () => {
     temporaryDirectories.push(storageRoot);
     const app = createApp(storageRoot);
 
-    const created = await request(app).post('/api/semi/subforms').send({ name: 'Personal care', active: true, configuration: { sections: { careNeeds: true } } });
-    const updated = await request(app).patch(`/api/semi/subforms/${created.body.id}`).send({ active: false });
+    const created = await request(app)
+      .post('/api/semi/subforms')
+      .send({
+        name: 'Personal care',
+        active: true,
+        configuration: { sections: { careNeeds: true } },
+      });
+    const updated = await request(app)
+      .patch(`/api/semi/subforms/${created.body.id}`)
+      .send({ active: false });
 
     expect(updated.status).toBe(200);
-    expect(updated.body).toMatchObject({ id: 'personal-care', active: false, configuration: { sections: { careNeeds: true } } });
+    expect(updated.body).toMatchObject({
+      id: 'personal-care',
+      active: false,
+      configuration: { sections: { careNeeds: true } },
+    });
   });
 
   it('saves a self-contained semi-custom care plan with subform snapshots', async () => {
     const storageRoot = await mkdtemp(path.join(os.tmpdir(), 'form-builder-'));
     temporaryDirectories.push(storageRoot);
     const app = createApp(storageRoot);
-    const subform = (await request(app).post('/api/semi/subforms').send({ name: 'Personal care', active: true, configuration: { schedule: { timeFormat: 'start-end' } } })).body;
+    const subform = (
+      await request(app)
+        .post('/api/semi/subforms')
+        .send({
+          name: 'Personal care',
+          active: true,
+          configuration: { schedule: { timeFormat: 'start-end' } },
+        })
+    ).body;
 
-    const response = await request(app).post('/api/semi/care-plans').send({
-      name: 'Home support plan',
-      structure: 'per-serv',
-      services: [{ code: 'PC-01', name: 'Showering & Grooming Assistance', category: 'Personal Care' }],
-      assignments: [{ serviceCode: 'PC-01', subform: { id: subform.id, name: subform.name, configuration: subform.configuration } }]
-    });
+    const response = await request(app)
+      .post('/api/semi/care-plans')
+      .send({
+        name: 'Home support plan',
+        structure: 'per-serv',
+        services: [
+          { code: 'PC-01', name: 'Showering & Grooming Assistance', category: 'Personal Care' },
+        ],
+        assignments: [
+          {
+            serviceCode: 'PC-01',
+            subform: { id: subform.id, name: subform.name, configuration: subform.configuration },
+          },
+        ],
+      });
 
     expect(response.status).toBe(201);
     expect(response.body.id).toBe('home-support-plan');
-    expect(response.body.assignments[0].subform).toEqual({ id: subform.id, name: 'Personal care', configuration: { schedule: { timeFormat: 'start-end' } } });
+    expect(response.body.assignments[0].subform).toEqual({
+      id: subform.id,
+      name: 'Personal care',
+      configuration: { schedule: { timeFormat: 'start-end' } },
+    });
   });
 
   it('requires a subform assignment for every selected Per-SERV service', async () => {
@@ -143,12 +267,16 @@ describe('template API', () => {
     temporaryDirectories.push(storageRoot);
     const app = createApp(storageRoot);
 
-    const response = await request(app).post('/api/semi/care-plans').send({
-      name: 'Incomplete home support plan',
-      structure: 'per-serv',
-      services: [{ code: 'PC-01', name: 'Showering & Grooming Assistance', category: 'Personal Care' }],
-      assignments: [],
-    });
+    const response = await request(app)
+      .post('/api/semi/care-plans')
+      .send({
+        name: 'Incomplete home support plan',
+        structure: 'per-serv',
+        services: [
+          { code: 'PC-01', name: 'Showering & Grooming Assistance', category: 'Personal Care' },
+        ],
+        assignments: [],
+      });
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ error: 'Assign an active subform to every selected SERV' });
@@ -158,13 +286,17 @@ describe('template API', () => {
     const storageRoot = await mkdtemp(path.join(os.tmpdir(), 'form-builder-'));
     temporaryDirectories.push(storageRoot);
     const app = createApp(storageRoot);
-    const saved = await request(app).post('/api/semi/care-plans').send({
-      name: 'HTML care plan',
-      structure: 'consolidated',
-      services: [{ code: 'DOM-01', name: 'General Household Cleaning', category: 'Domestic Assistance' }],
-      participantFields: ['Full Legal Name & Preferred Name'],
-      servInfo: { careNeeds: true },
-    });
+    const saved = await request(app)
+      .post('/api/semi/care-plans')
+      .send({
+        name: 'HTML care plan',
+        structure: 'consolidated',
+        services: [
+          { code: 'DOM-01', name: 'General Household Cleaning', category: 'Domestic Assistance' },
+        ],
+        participantFields: ['Full Legal Name & Preferred Name'],
+        servInfo: { careNeeds: true },
+      });
 
     const html = await request(app).get(`/api/semi/care-plans/${saved.body.id}/html`);
     const missing = await request(app).get('/api/semi/care-plans/missing/html');
@@ -180,8 +312,17 @@ describe('template API', () => {
     temporaryDirectories.push(storageRoot);
     const app = createApp(storageRoot);
 
-    const invalidService = await request(app).post('/api/semi/care-plans').send({ name: 'Broken plan', structure: 'consolidated', services: [null] });
-    const invalidGeneralInfo = await request(app).post('/api/semi/care-plans').send({ name: 'Broken fields', structure: 'consolidated', services: [], generalInfo: { health: null } });
+    const invalidService = await request(app)
+      .post('/api/semi/care-plans')
+      .send({ name: 'Broken plan', structure: 'consolidated', services: [null] });
+    const invalidGeneralInfo = await request(app)
+      .post('/api/semi/care-plans')
+      .send({
+        name: 'Broken fields',
+        structure: 'consolidated',
+        services: [],
+        generalInfo: { health: null },
+      });
 
     expect(invalidService.status).toBe(400);
     expect(invalidGeneralInfo.status).toBe(400);
@@ -193,14 +334,22 @@ describe('template API', () => {
     temporaryDirectories.push(storageRoot);
     const app = createApp(storageRoot);
 
-    await request(app).post('/api/templates').send({
-      name: 'Contact form',
-      fields: [{ id: 'name', kind: 'text', label: 'Name' }],
-      schema: { title: 'Contact form', type: 'object', properties: { name: { type: 'string', title: 'Name' } } },
-      uiSchema: {}
-    });
+    await request(app)
+      .post('/api/templates')
+      .send({
+        name: 'Contact form',
+        fields: [{ id: 'name', kind: 'text', label: 'Name' }],
+        schema: {
+          title: 'Contact form',
+          type: 'object',
+          properties: { name: { type: 'string', title: 'Name' } },
+        },
+        uiSchema: {},
+      });
 
-    const response = await request(app).post('/api/templates/contact-form/print').send({ formData: { name: 'Ari' } });
+    const response = await request(app)
+      .post('/api/templates/contact-form/print')
+      .send({ formData: { name: 'Ari' } });
 
     expect(response.status).toBe(200);
     expect(response.type).toBe('text/html');

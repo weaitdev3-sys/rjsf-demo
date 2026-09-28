@@ -1,0 +1,113 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - heading "Form Foundry" [level=3] [ref=e5]
+    - paragraph [ref=e6]: Form template workspace
+    - generic [ref=e7]:
+      - button "Home" [ref=e8] [cursor=pointer]
+      - paragraph [ref=e11]: FULL-CUSTOM
+      - button "Full-custom templates" [ref=e12] [cursor=pointer]
+      - paragraph [ref=e15]: SEMI-CUSTOM
+      - button "Subform templates" [ref=e16] [cursor=pointer]
+      - button "Care-plan templates" [ref=e19] [cursor=pointer]
+      - paragraph [ref=e22]: RECORDS
+      - button "Saved responses" [ref=e23] [cursor=pointer]
+  - main [ref=e26]:
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - heading "SERV subform templates" [level=2] [ref=e29]
+        - paragraph [ref=e30]: Support at Home service-template workspace
+      - generic [ref=e31]: semi-custom
+    - alert "Authoring workflow" [ref=e33]:
+      - generic [ref=e35]:
+        - generic [ref=e36]: Authoring workflow
+        - generic [ref=e38]: Create active subforms, choose a care-plan structure, select SERVs, assign subforms when required, then review and save.
+    - generic [ref=e40]:
+      - generic [ref=e42]:
+        - heading "Create subform template" [level=4] [ref=e43]
+        - generic [ref=e44]:
+          - generic [ref=e45]: Template name
+          - textbox "Template name" [ref=e47]:
+            - /placeholder: Nursing – Wound Care
+        - generic [ref=e49]:
+          - switch "Active for care-plan assignment" [checked] [ref=e50]
+          - generic [ref=e54]: Active for care-plan assignment
+        - paragraph [ref=e56]: Only active subforms can be assigned to Per-SERV and Hybrid care plans.
+        - generic [ref=e58]:
+          - checkbox "Schedule" [checked] [active] [ref=e60]
+          - generic [ref=e61]: Schedule
+        - generic [ref=e163]:
+          - generic [ref=e164]: Time format
+          - combobox "Time format" [ref=e166] [cursor=pointer]: Start–end time
+        - generic [ref=e64]:
+          - checkbox "Item list" [ref=e66]
+          - generic [ref=e67]: Item list
+        - separator [ref=e69]
+        - paragraph [ref=e70]: Narrative sections
+        - generic [ref=e71]:
+          - generic [ref=e73]:
+            - checkbox "Care Needs" [checked] [ref=e75]
+            - generic [ref=e76]: Care Needs
+          - generic [ref=e79]:
+            - checkbox "Participant Goals" [checked] [ref=e81]
+            - generic [ref=e82]: Participant Goals
+          - generic [ref=e85]:
+            - checkbox "Support Strategies" [ref=e87]
+            - generic [ref=e88]: Support Strategies
+          - generic [ref=e91]:
+            - checkbox "Areas of Difficulty and Existing Arrangements" [ref=e93]
+            - generic [ref=e94]: Areas of Difficulty and Existing Arrangements
+          - generic [ref=e97]:
+            - checkbox "Relevant Information on SAH Support Plan" [ref=e99]
+            - generic [ref=e100]: Relevant Information on SAH Support Plan
+          - generic [ref=e103]:
+            - checkbox "Remarks" [checked] [ref=e105]
+            - generic [ref=e106]: Remarks
+          - generic [ref=e109]:
+            - checkbox "Outcome Reviews" [ref=e111]
+            - generic [ref=e112]: Outcome Reviews
+        - button "Save subform" [ref=e114] [cursor=pointer]
+      - generic [ref=e118]:
+        - generic [ref=e119]:
+          - heading "Component preview" [level=4] [ref=e120]
+          - paragraph [ref=e121]: This is what staff will see when they fill the subform.
+          - generic [ref=e122]:
+            - heading "Untitled subform" [level=5] [ref=e123]
+            - generic [ref=e124]:
+              - generic [ref=e167]:
+                - paragraph [ref=e168]: Schedule
+                - generic [ref=e169]:
+                  - generic [ref=e170]:
+                    - generic [ref=e171]: Start time
+                    - textbox "Start time" [ref=e173]:
+                      - /placeholder: 09:00
+                  - generic [ref=e174]:
+                    - generic [ref=e175]: End time
+                    - textbox "End time" [ref=e177]:
+                      - /placeholder: 10:00
+              - generic [ref=e125]:
+                - generic [ref=e126]: Care Needs
+                - textbox "Care Needs" [ref=e128]:
+                  - /placeholder: Enter care needs
+              - generic [ref=e129]:
+                - generic [ref=e130]: Participant Goals
+                - textbox "Participant Goals" [ref=e132]:
+                  - /placeholder: Enter participant goals
+              - generic [ref=e133]:
+                - generic [ref=e134]: Remarks
+                - textbox "Remarks" [ref=e136]:
+                  - /placeholder: Enter remarks
+        - generic [ref=e137]:
+          - generic [ref=e138]:
+            - heading "Template library" [level=4] [ref=e139]
+            - generic [ref=e140]: "1"
+          - generic [ref=e144]:
+            - generic [ref=e145]:
+              - paragraph [ref=e146]: item-list
+              - paragraph [ref=e147]: 2026-09-28
+              - generic [ref=e148]:
+                - generic [ref=e149]: No schedule
+                - generic [ref=e151]: Item list · 5 columns
+                - generic [ref=e153]: 7 narrative sections
+            - generic [ref=e156]:
+              - switch "Active" [checked] [ref=e157]
+              - generic [ref=e161]: Active

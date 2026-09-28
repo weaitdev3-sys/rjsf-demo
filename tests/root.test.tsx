@@ -18,7 +18,11 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: vi.fn(),
   })),
 });
-class ResizeObserverMock { observe() {} unobserve() {} disconnect() {} }
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
 vi.stubGlobal('ResizeObserver', ResizeObserverMock);
 
 afterEach(cleanup);
@@ -30,7 +34,9 @@ describe('application routes', () => {
 
     render(<Root />);
 
-    expect(await screen.findByRole('heading', { name: 'SERV subform templates' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'SERV subform templates' }),
+    ).toBeInTheDocument();
   });
 
   it('keeps the application sidebar around the saved-responses route', async () => {
@@ -41,8 +47,13 @@ describe('application routes', () => {
 
     expect(await screen.findByRole('heading', { name: 'Saved responses' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'New full-custom template' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'New full-custom template' }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Care-plan templates' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Saved responses' })).toHaveAttribute('data-variant', 'filled');
+    expect(screen.getByRole('button', { name: 'Saved responses' })).toHaveAttribute(
+      'data-variant',
+      'filled',
+    );
   });
 });

@@ -1,0 +1,109 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Form Foundry" [level=3] [ref=e6]
+      - generic [ref=e7]: local
+    - generic [ref=e9]:
+      - button "Home" [ref=e10] [cursor=pointer]
+      - button "Full-custom templates" [ref=e13] [cursor=pointer]
+      - button "Subform templates" [ref=e16] [cursor=pointer]
+      - button "Care-plan templates" [ref=e19] [cursor=pointer]
+      - button "Saved responses" [ref=e22] [cursor=pointer]
+  - main [ref=e25]:
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - paragraph [ref=e29]: Reusable JSON-schema templates
+        - textbox "Template name" [ref=e32]: Untitled form
+      - generic [ref=e33]:
+        - button "Build" [active] [ref=e34] [cursor=pointer]
+        - button "Fill form" [ref=e37] [cursor=pointer]
+        - button "Save template" [ref=e40] [cursor=pointer]
+    - generic [ref=e212]:
+      - paragraph [ref=e213]: Form layout
+      - combobox "Form layout" [ref=e216] [cursor=pointer]: Flat form
+      - button "Remove page" [disabled] [ref=e217]
+    - generic [ref=e221]:
+      - paragraph [ref=e222]: Pages
+      - combobox "Active page" [ref=e225] [cursor=pointer]: Page 1
+      - generic [ref=e226]:
+        - generic [ref=e227]: Page title
+        - textbox "Page title" [ref=e229]: Page 1
+      - button "Add page" [ref=e230] [cursor=pointer]
+    - generic [ref=e233]:
+      - generic [ref=e234]:
+        - heading "Fields" [level=4] [ref=e235]
+        - generic [ref=e236]:
+          - button "Add text field" [ref=e237] [cursor=pointer]:
+            - generic [ref=e238]: + Text field
+          - button "Add long text" [ref=e240] [cursor=pointer]:
+            - generic [ref=e241]: + Long text
+          - button "Add number" [ref=e243] [cursor=pointer]:
+            - generic [ref=e244]: + Number
+          - button "Add email" [ref=e246] [cursor=pointer]:
+            - generic [ref=e247]: + Email
+          - button "Add phone" [ref=e249] [cursor=pointer]:
+            - generic [ref=e250]: + Phone
+          - button "Add date picker" [ref=e252] [cursor=pointer]:
+            - generic [ref=e253]: + Date picker
+          - button "Add time picker" [ref=e255] [cursor=pointer]:
+            - generic [ref=e256]: + Time picker
+          - button "Add select" [ref=e258] [cursor=pointer]:
+            - generic [ref=e259]: + Select
+          - button "Add radio" [ref=e261] [cursor=pointer]:
+            - generic [ref=e262]: + Radio
+          - button "Add checkbox" [ref=e264] [cursor=pointer]:
+            - generic [ref=e265]: + Checkbox
+          - button "Add multi-select" [ref=e267] [cursor=pointer]:
+            - generic [ref=e268]: + Multi-select
+          - button "Add autocomplete" [ref=e270] [cursor=pointer]:
+            - generic [ref=e271]: + Autocomplete
+          - button "Add list input" [ref=e273] [cursor=pointer]:
+            - generic [ref=e274]: + List input
+        - separator [ref=e276]
+        - heading "Layout" [level=4] [ref=e277]
+        - generic [ref=e278]:
+          - button "Add container" [ref=e279] [cursor=pointer]:
+            - generic [ref=e280]: + Container
+          - button "Add heading" [ref=e282] [cursor=pointer]:
+            - generic [ref=e283]: + Heading
+          - button "Add text" [ref=e285] [cursor=pointer]:
+            - generic [ref=e286]: + Text
+          - button "Add two-column" [ref=e288] [cursor=pointer]:
+            - generic [ref=e289]: + Two-column
+          - button "Add tabs" [ref=e291] [cursor=pointer]:
+            - generic [ref=e292]: + Tabs
+      - generic [ref=e294]:
+        - generic [ref=e295]:
+          - heading "Form canvas" [level=4] [ref=e296]
+          - generic [ref=e297]: 2 blocks
+        - generic [ref=e299]:
+          - generic [ref=e300] [cursor=pointer]:
+            - paragraph [ref=e301]: Participant name
+            - paragraph [ref=e302]: text · required
+          - generic [ref=e303] [cursor=pointer]:
+            - paragraph [ref=e304]: Untitled Select
+            - paragraph [ref=e305]: select
+      - generic [ref=e306]:
+        - heading "Field settings" [level=4] [ref=e307]
+        - generic [ref=e308]:
+          - generic [ref=e309]:
+            - generic [ref=e310]: Field label
+            - textbox "Field label" [ref=e312]: Untitled Select
+          - generic [ref=e313]:
+            - generic [ref=e314]: Help text
+            - textbox "Help text" [ref=e316]
+          - generic [ref=e317]:
+            - generic [ref=e318]: Type
+            - combobox "Type" [ref=e320] [cursor=pointer]: Select
+          - button "Optional" [ref=e321] [cursor=pointer]
+          - generic [ref=e324]:
+            - generic [ref=e325]: Options (one per line)
+            - textbox "Options (one per line)" [ref=e327]: Option 1 Option 2
+          - separator [ref=e328]
+          - heading "Visibility" [level=5] [ref=e329]
+          - button "Add conditional logic" [ref=e330] [cursor=pointer]
+          - separator [ref=e333]
+          - generic [ref=e334]:
+            - button "Move up" [ref=e335] [cursor=pointer]
+            - button "Move down" [ref=e338] [cursor=pointer]
+          - button "Delete field" [ref=e341] [cursor=pointer]

@@ -30,10 +30,7 @@
           "id": "select-1790063197575-4",
           "kind": "select",
           "label": "Role",
-          "options": [
-            "Option 1",
-            "Option 2"
-          ]
+          "options": ["Option 1", "Option 2"]
         }
       ]
     }
@@ -67,10 +64,7 @@
             "role": {
               "type": "string",
               "title": "Role",
-              "enum": [
-                "Option 1",
-                "Option 2"
-              ]
+              "enum": ["Option 1", "Option 2"]
             }
           }
         }

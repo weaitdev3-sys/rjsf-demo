@@ -8,8 +8,18 @@ import type { SemiCarePlanTemplate } from '../src/domain/semiCustom';
 describe('print renderer', () => {
   it('renders saved response snapshots with escaped entered values', () => {
     const html = renderResponseHtml({
-      id: 'response-1', kind: 'full-custom', templateId: 'intake', templateName: 'Intake', createdAt: '', updatedAt: '',
-      templateSnapshot: { name: 'Intake', fields: [{ id: 'name', kind: 'text', label: 'Name' }], schema: { type: 'object', properties: {} }, uiSchema: {} },
+      id: 'response-1',
+      kind: 'full-custom',
+      templateId: 'intake',
+      templateName: 'Intake',
+      createdAt: '',
+      updatedAt: '',
+      templateSnapshot: {
+        name: 'Intake',
+        fields: [{ id: 'name', kind: 'text', label: 'Name' }],
+        schema: { type: 'object', properties: {} },
+        uiSchema: {},
+      },
       formData: { name: '<script>alert(1)</script>' },
     });
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
@@ -20,21 +30,25 @@ describe('print renderer', () => {
     const carePlan: SemiCarePlanTemplate = {
       name: 'Home support plan',
       structure: 'per-serv',
-      services: [{ code: 'PC-01', name: 'Showering & Grooming Assistance', category: 'Personal Care' }],
+      services: [
+        { code: 'PC-01', name: 'Showering & Grooming Assistance', category: 'Personal Care' },
+      ],
       participantFields: ['Full Legal Name & Preferred Name'],
       generalInfo: { health: ['Mobility'] },
-      assignments: [{
-        serviceCode: 'PC-01',
-        subform: {
-          id: 'personal-care',
-          name: 'Personal care',
-          configuration: {
-            schedule: { timeFormat: 'start-end' },
-            itemList: { columns: ['Description', 'Frequency'] },
-            sections: { careNeeds: true },
+      assignments: [
+        {
+          serviceCode: 'PC-01',
+          subform: {
+            id: 'personal-care',
+            name: 'Personal care',
+            configuration: {
+              schedule: { timeFormat: 'start-end' },
+              itemList: { columns: ['Description', 'Frequency'] },
+              sections: { careNeeds: true },
+            },
           },
         },
-      }],
+      ],
     };
 
     const html = renderSemiCarePlanHtml(carePlan);
@@ -46,9 +60,13 @@ describe('print renderer', () => {
     expect(html).toContain('Mobility');
     expect(html).toContain('PC-01 · Showering &amp; Grooming Assistance');
     expect(html).toContain('Start–end time');
+    expect(html).toContain('class="print-field-table"');
+    expect(html).toContain('class="print-detail-table"');
+    expect(html).toContain('class="print-narrative"');
     expect(html).toContain('<th>Description</th>');
     expect(html).toContain('<th>Frequency</th>');
     expect(html).toContain('Care Needs');
+    expect(html).not.toContain('field-list');
   });
 
   it('renders visible builder fields into an A4 HTML document', () => {
@@ -58,13 +76,22 @@ describe('print renderer', () => {
         { id: 'about', kind: 'heading', label: 'About you' },
         { id: 'name', kind: 'text', label: 'Full name' },
         { id: 'contact', kind: 'radio', label: 'Contact method', options: ['Phone', 'Email'] },
-        { id: 'phone', kind: 'phone', label: 'Phone number', visibility: { controllerId: 'contact', operator: 'equals', value: 'Phone' } }
+        {
+          id: 'phone',
+          kind: 'phone',
+          label: 'Phone number',
+          visibility: { controllerId: 'contact', operator: 'equals', value: 'Phone' },
+        },
       ],
       schema: { type: 'object', properties: {} },
-      uiSchema: {}
+      uiSchema: {},
     };
 
-    const html = renderPrintableHtml(template, { full_name: 'Ari Nguyen', contact_method: 'Email', phone_number: '0400 000 000' });
+    const html = renderPrintableHtml(template, {
+      full_name: 'Ari Nguyen',
+      contact_method: 'Email',
+      phone_number: '0400 000 000',
+    });
 
     expect(html).toContain('@page { size: A4;');
     expect(html).toContain('<title>Client intake</title>');
@@ -82,18 +109,34 @@ describe('print renderer', () => {
       name: 'Care plan',
       fields: [
         { id: 'intro', kind: 'textLayout', label: 'Intro', content: 'Plan summary' },
-        { id: 'details', kind: 'container', label: 'Details', children: [{ id: 'note', kind: 'textarea', label: 'Notes' }] },
-        { id: 'columns', kind: 'twoColumn', label: 'Contacts', leftChildren: [{ id: 'first', kind: 'text', label: 'First' }], rightChildren: [{ id: 'second', kind: 'text', label: 'Second' }] },
-        { id: 'appointments', kind: 'list', label: 'Appointments', children: [{ id: 'clinic', kind: 'text', label: 'Clinic' }] }
+        {
+          id: 'details',
+          kind: 'container',
+          label: 'Details',
+          children: [{ id: 'note', kind: 'textarea', label: 'Notes' }],
+        },
+        {
+          id: 'columns',
+          kind: 'twoColumn',
+          label: 'Contacts',
+          leftChildren: [{ id: 'first', kind: 'text', label: 'First' }],
+          rightChildren: [{ id: 'second', kind: 'text', label: 'Second' }],
+        },
+        {
+          id: 'appointments',
+          kind: 'list',
+          label: 'Appointments',
+          children: [{ id: 'clinic', kind: 'text', label: 'Clinic' }],
+        },
       ],
       schema: { type: 'object', properties: {} },
-      uiSchema: {}
+      uiSchema: {},
     };
 
     const html = renderPrintableHtml(template, {
       details: { notes: '<script>alert(1)</script>' },
       first: 'Ada',
-      appointments: [{ clinic: 'North' }]
+      appointments: [{ clinic: 'North' }],
     });
 
     expect(html).toContain('Plan summary');
@@ -114,10 +157,14 @@ describe('print renderer', () => {
         type: 'object',
         properties: {
           name: { type: 'string', title: 'Name' },
-          address: { type: 'object', title: 'Address', properties: { suburb: { type: 'string', title: 'Suburb' } } }
-        }
+          address: {
+            type: 'object',
+            title: 'Address',
+            properties: { suburb: { type: 'string', title: 'Suburb' } },
+          },
+        },
       },
-      uiSchema: {}
+      uiSchema: {},
     };
 
     const html = renderPrintableHtml(template, { name: 'Ari', address: { suburb: 'Newtown' } });
@@ -131,14 +178,19 @@ describe('print renderer', () => {
   it('presents an A4 sheet and an empty table for an unentered list', () => {
     const template: TemplateDocument = {
       name: 'Service record',
-      fields: [{
-        id: 'visits', kind: 'list', label: 'Visits', children: [
-          { id: 'date', kind: 'date', label: 'Date' },
-          { id: 'worker', kind: 'text', label: 'Worker' }
-        ]
-      }],
+      fields: [
+        {
+          id: 'visits',
+          kind: 'list',
+          label: 'Visits',
+          children: [
+            { id: 'date', kind: 'date', label: 'Date' },
+            { id: 'worker', kind: 'text', label: 'Worker' },
+          ],
+        },
+      ],
       schema: { type: 'object', properties: {} },
-      uiSchema: {}
+      uiSchema: {},
     };
 
     const html = renderPrintableHtml(template, {});
@@ -157,11 +209,19 @@ describe('print renderer', () => {
       name: 'Paged care plan',
       fields: [],
       pages: [
-        { id: 'client', title: 'Client', fields: [{ id: 'name', kind: 'text', label: 'Client name' }] },
-        { id: 'support', title: 'Support', fields: [{ id: 'goal', kind: 'textarea', label: 'Goal' }] }
+        {
+          id: 'client',
+          title: 'Client',
+          fields: [{ id: 'name', kind: 'text', label: 'Client name' }],
+        },
+        {
+          id: 'support',
+          title: 'Support',
+          fields: [{ id: 'goal', kind: 'textarea', label: 'Goal' }],
+        },
       ],
       schema: { type: 'object', properties: {} },
-      uiSchema: {}
+      uiSchema: {},
     };
 
     const html = renderPrintableHtml(template, { client_name: 'Ari', goal: 'Live independently' });

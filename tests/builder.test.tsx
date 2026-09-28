@@ -6,9 +6,22 @@ import App from '../src/App';
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: vi.fn().mockImplementation((query) => ({ matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }))
+  value: vi.fn().mockImplementation((query) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
 });
-class ResizeObserverMock { observe() {} unobserve() {} disconnect() {} }
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
 vi.stubGlobal('ResizeObserver', ResizeObserverMock);
 afterEach(cleanup);
 
@@ -17,11 +30,11 @@ describe('form builder', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
 
-  expect(screen.getByLabelText('Page title')).toHaveValue('Page 1');
-  fireEvent.click(screen.getByRole('button', { name: 'Add page' }));
-  expect(screen.getByLabelText('Page title')).toHaveValue('Page 2');
-  fireEvent.click(screen.getByRole('button', { name: 'Remove page' }));
-  expect(screen.getByLabelText('Page title')).toHaveValue('Page 1');
+    expect(screen.getByLabelText('Page title')).toHaveValue('Page 1');
+    fireEvent.click(screen.getByRole('button', { name: 'Add page' }));
+    expect(screen.getByLabelText('Page title')).toHaveValue('Page 2');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove page' }));
+    expect(screen.getByLabelText('Page title')).toHaveValue('Page 1');
     expect(screen.getByRole('button', { name: 'Remove page' })).toBeDisabled();
   });
 
@@ -29,7 +42,9 @@ describe('form builder', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Form layout' }), { target: { value: 'stepper' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Form layout' }), {
+      target: { value: 'stepper' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Add page' }));
     fireEvent.click(screen.getByRole('button', { name: 'Preview & fill' }));
 
@@ -80,13 +95,22 @@ describe('form builder', () => {
     const printWindow = { document: { write: vi.fn(), close: vi.fn() }, print: vi.fn() };
     vi.spyOn(window, 'open').mockReturnValue(printWindow as unknown as Window);
     const fetchMock = vi.fn().mockImplementation(async (url: string, options?: RequestInit) => {
-      if (url === '/api/templates/printable-form/print') return { ok: true, text: async () => '<html>Printable form</html>' };
-      return { ok: true, json: async () => url === '/api/templates' && options?.method === 'POST' ? { id: 'printable-form', name: 'Printable form' } : [] };
+      if (url === '/api/templates/printable-form/print')
+        return { ok: true, text: async () => '<html>Printable form</html>' };
+      return {
+        ok: true,
+        json: async () =>
+          url === '/api/templates' && options?.method === 'POST'
+            ? { id: 'printable-form', name: 'Printable form' }
+            : [],
+      };
     });
     vi.stubGlobal('fetch', fetchMock);
     render(<App />);
 
-    fireEvent.change(await screen.findByLabelText('Template name'), { target: { value: 'Printable form' } });
+    fireEvent.change(await screen.findByLabelText('Template name'), {
+      target: { value: 'Printable form' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
     fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Name' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
@@ -96,7 +120,12 @@ describe('form builder', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Print / Save as PDF' }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/templates/printable-form/print', expect.objectContaining({ method: 'POST', body: expect.stringContaining('Ari') })));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/templates/printable-form/print',
+        expect.objectContaining({ method: 'POST', body: expect.stringContaining('Ari') }),
+      ),
+    );
     expect(printWindow.document.write).toHaveBeenCalledWith('<html>Printable form</html>');
     expect(printWindow.document.close).toHaveBeenCalled();
     expect(printWindow.print).toHaveBeenCalled();
@@ -107,7 +136,9 @@ describe('form builder', () => {
     render(<App />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Add page' }));
-    fireEvent.change(screen.getByLabelText('Page title'), { target: { value: 'Clinical Supports' } });
+    fireEvent.change(screen.getByLabelText('Page title'), {
+      target: { value: 'Clinical Supports' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
 
     expect(screen.getByText('Clinical Supports')).toBeInTheDocument();
@@ -120,7 +151,9 @@ describe('form builder', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Advanced fields' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add multi-select' }));
-    fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Approved services' } });
+    fireEvent.change(screen.getByLabelText('Field label'), {
+      target: { value: 'Approved services' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Layout' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add container' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
@@ -296,7 +329,10 @@ describe('form builder', () => {
 
     expect(screen.getByText('Preferred name')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '← Back to tabs' }));
-    expect(screen.getByRole('tab', { name: 'Contact details' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Contact details' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
   });
 
   it('renders static text in fill mode without creating a response field', async () => {
@@ -318,7 +354,9 @@ describe('form builder', () => {
     fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Before layout' } });
     fireEvent.click(screen.getByRole('button', { name: 'Layout' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text' }));
-    fireEvent.change(screen.getByLabelText('Text content'), { target: { value: 'Inline guidance' } });
+    fireEvent.change(screen.getByLabelText('Text content'), {
+      target: { value: 'Inline guidance' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Add heading' }));
     fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Middle heading' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
@@ -329,27 +367,38 @@ describe('form builder', () => {
     const guidance = screen.getByText('Inline guidance');
     const heading = screen.getByRole('heading', { name: 'Middle heading' });
     const after = screen.getByLabelText('After layout');
-    expect(before.compareDocumentPosition(guidance) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(guidance.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      before.compareDocumentPosition(guidance) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      guidance.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(heading.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('keeps two-column values and validates the complete response before saving', async () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string, options?: RequestInit) => ({
       ok: true,
-      json: async () => url === '/api/templates' && options?.method === 'POST' ? { id: 'template-1', name: 'Layout form' } : []
+      json: async () =>
+        url === '/api/templates' && options?.method === 'POST'
+          ? { id: 'template-1', name: 'Layout form' }
+          : [],
     }));
     vi.stubGlobal('fetch', fetchMock);
     render(<App />);
 
-    fireEvent.change(await screen.findByLabelText('Template name'), { target: { value: 'Layout form' } });
+    fireEvent.change(await screen.findByLabelText('Template name'), {
+      target: { value: 'Layout form' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Layout' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add two-column' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field to left column' }));
     fireEvent.click(screen.getByRole('button', { name: '← Back to two-column layout' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add email to right column' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
-    fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Required after columns' } });
+    fireEvent.change(screen.getByLabelText('Field label'), {
+      target: { value: 'Required after columns' },
+    });
     fireEvent.click(screen.getByRole('checkbox', { name: 'Required field' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
     await screen.findByText('Saved “Layout form”');
@@ -366,8 +415,18 @@ describe('form builder', () => {
     expect(screen.getByText('Complete the required fields before saving.')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalledWith('/api/submissions', expect.anything());
 
-    fireEvent.change(screen.getByLabelText(/Required after columns/), { target: { value: 'Done' } });
+    fireEvent.change(screen.getByLabelText(/Required after columns/), {
+      target: { value: 'Done' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Save response' }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/responses', expect.objectContaining({ method: 'POST', body: expect.stringContaining('right@example.test') })));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/responses',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('right@example.test'),
+        }),
+      ),
+    );
   });
 });

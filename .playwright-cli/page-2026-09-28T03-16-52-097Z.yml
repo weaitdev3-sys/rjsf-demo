@@ -1,0 +1,31 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Form Foundry" [level=3] [ref=e6]
+      - generic [ref=e7]: local
+    - generic [ref=e9]:
+      - button "Home" [ref=e10] [cursor=pointer]
+      - button "Full-custom templates" [ref=e13] [cursor=pointer]
+      - button "Subform templates" [ref=e16] [cursor=pointer]
+      - button "Care-plan templates" [ref=e19] [cursor=pointer]
+      - button "Saved responses" [ref=e22] [cursor=pointer]
+  - main [ref=e25]:
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - paragraph [ref=e29]: Reusable JSON-schema templates
+        - textbox "Template name" [ref=e32]: Untitled form
+      - generic [ref=e33]:
+        - button "Build" [ref=e34] [cursor=pointer]
+        - button "Fill form" [active] [ref=e37] [cursor=pointer]
+        - button "Save template" [ref=e40] [cursor=pointer]
+    - generic [ref=e183]:
+      - generic [ref=e190]:
+        - generic [ref=e191]: Participant name *
+        - textbox "Participant name" [ref=e193]:
+          - /placeholder: ""
+      - generic [ref=e200]:
+        - generic [ref=e201]: Untitled Select
+        - combobox "Untitled Select" [ref=e203]
+      - generic [ref=e204]:
+        - button "Save response" [ref=e205] [cursor=pointer]
+        - button "Print / Save as PDF" [disabled] [ref=e208]

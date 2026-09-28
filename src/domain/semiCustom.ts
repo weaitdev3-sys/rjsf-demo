@@ -23,7 +23,10 @@ export type SemiCarePlanTemplate = {
   participantFields?: string[];
   generalInfo?: Record<string, string[]>;
   servInfo?: Record<string, unknown>;
-  assignments?: { serviceCode: string; subform: { id: string; name: string; configuration: SemiSubformConfiguration } }[];
+  assignments?: {
+    serviceCode: string;
+    subform: { id: string; name: string; configuration: SemiSubformConfiguration };
+  }[];
   createdAt?: string;
   updatedAt?: string;
 };

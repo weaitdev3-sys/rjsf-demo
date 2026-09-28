@@ -5,4 +5,8 @@ import '@mantine/dates/styles.css';
 import './styles.css';
 import { Root } from './Root';
 
-createRoot(document.getElementById('root')!).render(<StrictMode><Root /></StrictMode>);
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <Root />
+  </StrictMode>,
+);

@@ -7,7 +7,12 @@
     { "id": "intro", "kind": "heading", "label": "About you" },
     { "id": "full-name", "kind": "text", "label": "Full name", "required": true },
     { "id": "email", "kind": "email", "label": "Email address", "required": true },
-    { "id": "contact-method", "kind": "radio", "label": "Preferred contact method", "options": ["Phone", "Email"] }
+    {
+      "id": "contact-method",
+      "kind": "radio",
+      "label": "Preferred contact method",
+      "options": ["Phone", "Email"]
+    }
   ],
   "schema": {
     "title": "Client intake",
@@ -15,7 +20,11 @@
     "properties": {
       "full_name": { "type": "string", "title": "Full name" },
       "email": { "type": "string", "title": "Email address" },
-      "preferred_contact_method": { "type": "string", "title": "Preferred contact method", "enum": ["Phone", "Email"] }
+      "preferred_contact_method": {
+        "type": "string",
+        "title": "Preferred contact method",
+        "enum": ["Phone", "Email"]
+      }
     },
     "required": ["full_name", "email"]
   },

@@ -1,0 +1,87 @@
+- generic [ref=f2e3]:
+  - navigation [ref=f2e4]:
+    - heading "Form Foundry" [level=3] [ref=f2e5]
+    - paragraph [ref=f2e6]: Form template workspace
+    - generic [ref=f2e7]:
+      - button "Home" [ref=f2e8] [cursor=pointer]
+      - paragraph [ref=f2e11]: FULL-CUSTOM
+      - button "Full-custom templates" [ref=f2e12] [cursor=pointer]
+      - paragraph [ref=f2e15]: SEMI-CUSTOM
+      - button "Subform templates" [ref=f2e16] [cursor=pointer]
+      - button "Care-plan templates" [ref=f2e19] [cursor=pointer]
+      - paragraph [ref=f2e22]: RECORDS
+      - button "Saved responses" [ref=f2e23] [cursor=pointer]
+  - main [ref=f2e26]:
+    - generic [ref=f2e27]:
+      - generic [ref=f2e28]:
+        - heading "Semi-custom care-plan template" [level=2] [ref=f2e29]
+        - paragraph [ref=f2e30]: Support at Home service-template workspace
+      - generic [ref=f2e31]: semi-custom
+    - generic [ref=f2e34]:
+      - generic [ref=f2e37]:
+        - button "1 Template Structure Pick a structure" [ref=f2e38] [cursor=pointer]:
+          - generic [ref=f2e39]: "1"
+          - generic [ref=f2e43]:
+            - generic [ref=f2e44]: Template Structure
+            - generic [ref=f2e45]: Pick a structure
+        - button "2 SERV Config Choose services" [ref=f2e46] [cursor=pointer]:
+          - generic [ref=f2e47]: "2"
+          - generic [ref=f2e51]:
+            - generic [ref=f2e52]: SERV Config
+            - generic [ref=f2e53]: Choose services
+        - button "3 Participant Details Choose fields" [ref=f2e54] [cursor=pointer]:
+          - generic [ref=f2e55]: "3"
+          - generic [ref=f2e59]:
+            - generic [ref=f2e60]: Participant Details
+            - generic [ref=f2e61]: Choose fields
+        - button "4 General Info Health & support fields" [ref=f2e62] [cursor=pointer]:
+          - generic [ref=f2e63]: "4"
+          - generic [ref=f2e67]:
+            - generic [ref=f2e68]: General Info
+            - generic [ref=f2e69]: Health & support fields
+        - button "5 SERV Info Consolidated content" [ref=f2e70] [cursor=pointer]:
+          - generic [ref=f2e71]: "5"
+          - generic [ref=f2e75]:
+            - generic [ref=f2e76]: SERV Info
+            - generic [ref=f2e77]: Consolidated content
+        - button "6 Template JSON Review and save" [ref=f2e78] [cursor=pointer]:
+          - generic [ref=f2e79]: "6"
+          - generic [ref=f2e82]:
+            - generic [ref=f2e83]: Template JSON
+            - generic [ref=f2e84]: Review and save
+      - generic [ref=f2e86]:
+        - generic [ref=f2e88]:
+          - heading "Template Structure" [level=3] [ref=f2e89]
+          - paragraph [ref=f2e90]: Choose how this service template is organised. The structure controls which authoring steps apply.
+          - generic [ref=f2e91]:
+            - generic [ref=f2e92]: Care-plan name
+            - textbox "Care-plan name" [ref=f2e94]: Untitled Support at Home plan
+          - generic [ref=f2e95]:
+            - radio [ref=f2e96] [cursor=pointer]:
+              - heading "Per-SERV" [level=4] [ref=f2e99]
+              - paragraph [ref=f2e100]: Service content and scheduling live in each assigned subform.
+              - generic [ref=f2e101]:
+                - paragraph [ref=f2e104]: SERV Config
+                - paragraph [ref=f2e108]: Participant Details
+                - paragraph [ref=f2e112]: General Info
+                - paragraph [ref=f2e116]: SERV Assignment
+            - radio [checked] [ref=f2e117] [cursor=pointer]:
+              - heading "Consolidated" [level=4] [ref=f2e121]
+              - paragraph [ref=f2e122]: One shared SERV Info section covers all selected services.
+              - generic [ref=f2e123]:
+                - paragraph [ref=f2e126]: SERV Config
+                - paragraph [ref=f2e130]: Participant Details
+                - paragraph [ref=f2e134]: General Info
+                - paragraph [ref=f2e138]: SERV Info
+            - radio [ref=f2e139] [cursor=pointer]:
+              - heading "Hybrid" [level=4] [ref=f2e142]
+              - paragraph [ref=f2e143]: Shared SERV Info plus content from assigned service subforms.
+              - generic [ref=f2e144]:
+                - paragraph [ref=f2e147]: SERV Config
+                - paragraph [ref=f2e151]: Participant Details
+                - paragraph [ref=f2e155]: General Info
+                - paragraph [ref=f2e159]: SERV Info
+                - paragraph [ref=f2e163]: SERV Assignment
+        - generic [ref=f2e164]:
+          - button "Back" [disabled] [ref=f2e165]
+          - button "Next" [ref=f2e168] [cursor=pointer]

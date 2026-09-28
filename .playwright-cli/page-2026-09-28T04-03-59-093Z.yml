@@ -1,0 +1,166 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - heading "Form Foundry" [level=3] [ref=e5]
+    - paragraph [ref=e6]: Form template workspace
+    - generic [ref=e7]:
+      - button "Home" [ref=e8] [cursor=pointer]
+      - paragraph [ref=e11]: FULL-CUSTOM
+      - button "Full-custom templates" [ref=e12] [cursor=pointer]
+      - paragraph [ref=e15]: SEMI-CUSTOM
+      - button "Subform templates" [ref=e16] [cursor=pointer]
+      - button "Care-plan templates" [ref=e19] [cursor=pointer]
+      - paragraph [ref=e22]: RECORDS
+      - button "Saved responses" [ref=e23] [cursor=pointer]
+  - main [ref=e26]:
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - heading "Semi-custom care-plan template" [level=2] [ref=e29]
+        - paragraph [ref=e30]: Support at Home service-template workspace
+      - generic [ref=e31]: semi-custom
+    - alert "Authoring workflow" [ref=e33]:
+      - generic [ref=e35]:
+        - generic [ref=e36]: Authoring workflow
+        - generic [ref=e38]: Create active subforms, choose a care-plan structure, select SERVs, assign subforms when required, then review and save.
+    - generic [ref=e40]:
+      - generic [ref=e43]:
+        - button "Template Structure Pick a structure" [ref=e177] [cursor=pointer]:
+          - generic [ref=e49]:
+            - generic [ref=e50]: Template Structure
+            - generic [ref=e51]: Pick a structure
+        - button "SERV Config Choose services" [ref=e181] [cursor=pointer]:
+          - generic [ref=e57]:
+            - generic [ref=e58]: SERV Config
+            - generic [ref=e59]: Choose services
+        - button "Participant Details Choose fields" [ref=e185] [cursor=pointer]:
+          - generic [ref=e65]:
+            - generic [ref=e66]: Participant Details
+            - generic [ref=e67]: Choose fields
+        - button "4 General Info Health & support fields" [active] [ref=e68] [cursor=pointer]:
+          - generic [ref=e69]: "4"
+          - generic [ref=e73]:
+            - generic [ref=e74]: General Info
+            - generic [ref=e75]: Health & support fields
+        - button "5 SERV Info Consolidated content" [ref=e76] [cursor=pointer]:
+          - generic [ref=e77]: "5"
+          - generic [ref=e81]:
+            - generic [ref=e82]: SERV Info
+            - generic [ref=e83]: Consolidated content
+        - button "6 Review & save Check and save" [ref=e84] [cursor=pointer]:
+          - generic [ref=e85]: "6"
+          - generic [ref=e88]:
+            - generic [ref=e89]: Review & save
+            - generic [ref=e90]: Check and save
+      - generic [ref=e92]:
+        - generic [ref=e190]:
+          - generic [ref=e192]:
+            - heading "General Info" [level=3] [ref=e193]
+            - generic [ref=e194]:
+              - tablist [ref=e195]:
+                - tab "Health Summary" [selected] [ref=e196] [cursor=pointer]
+                - tab "Support" [ref=e198] [cursor=pointer]
+                - tab "Emergency" [ref=e200] [cursor=pointer]
+              - tabpanel "Health Summary" [ref=e202]:
+                - group [ref=e204]:
+                  - generic [ref=e205]:
+                    - generic [ref=e207]:
+                      - checkbox "Weight / Height / BMI" [checked] [ref=e209]
+                      - generic [ref=e210]: Weight / Height / BMI
+                    - generic [ref=e213]:
+                      - checkbox "Teeth / Dentures" [ref=e215]
+                      - generic [ref=e216]: Teeth / Dentures
+                    - generic [ref=e219]:
+                      - checkbox "Skin Condition" [ref=e221]
+                      - generic [ref=e222]: Skin Condition
+                    - generic [ref=e225]:
+                      - checkbox "Mobility" [checked] [ref=e227]
+                      - generic [ref=e228]: Mobility
+                    - generic [ref=e231]:
+                      - checkbox "Vision / Glasses / Eyes" [ref=e233]
+                      - generic [ref=e234]: Vision / Glasses / Eyes
+                    - generic [ref=e237]:
+                      - checkbox "Hearing" [ref=e239]
+                      - generic [ref=e240]: Hearing
+                    - generic [ref=e243]:
+                      - checkbox "Continence" [ref=e245]
+                      - generic [ref=e246]: Continence
+                    - generic [ref=e249]:
+                      - checkbox "Allergies, Diet & Fluids" [checked] [ref=e251]
+                      - generic [ref=e252]: Allergies, Diet & Fluids
+                    - generic [ref=e255]:
+                      - checkbox "Cognitive" [ref=e257]
+                      - generic [ref=e258]: Cognitive
+                    - generic [ref=e261]:
+                      - checkbox "Medical History" [ref=e263]
+                      - generic [ref=e264]: Medical History
+                    - generic [ref=e267]:
+                      - checkbox "Social History" [ref=e269]
+                      - generic [ref=e270]: Social History
+                    - generic [ref=e273]:
+                      - checkbox "Personal Preferences" [ref=e275]
+                      - generic [ref=e276]: Personal Preferences
+                    - generic [ref=e279]:
+                      - checkbox "Advanced Care Planning" [ref=e281]
+                      - generic [ref=e282]: Advanced Care Planning
+                    - generic [ref=e285]:
+                      - checkbox "Living Arrangement" [ref=e287]
+                      - generic [ref=e288]: Living Arrangement
+                    - generic [ref=e291]:
+                      - checkbox "Access to Participant's Home" [ref=e293]
+                      - generic [ref=e294]: Access to Participant's Home
+                    - generic [ref=e297]:
+                      - checkbox "Remarks" [ref=e299]
+                      - generic [ref=e300]: Remarks
+          - generic [ref=e303]:
+            - heading "General Info preview" [level=4] [ref=e304]
+            - paragraph [ref=e305]: Selected fields appear as staff-facing form components.
+            - generic [ref=e306]:
+              - heading "Health Summary" [level=5] [ref=e307]
+              - generic [ref=e308]:
+                - generic [ref=e309]:
+                  - generic [ref=e310]: Weight (kg)
+                  - spinbutton "Weight (kg)" [ref=e312]
+                - generic [ref=e313]:
+                  - generic [ref=e314]: Height (cm)
+                  - spinbutton "Height (cm)" [ref=e316]
+                - generic [ref=e317]:
+                  - generic [ref=e318]: BMI
+                  - textbox "BMI" [ref=e320]
+              - generic [ref=e321]:
+                - generic [ref=e322]: Mobility
+                - textbox "Mobility" [ref=e324]:
+                  - /placeholder: Enter mobility
+              - generic [ref=e325]:
+                - generic [ref=e326]:
+                  - paragraph [ref=e327]: Allergies
+                  - table "Allergy preview" [ref=e329]:
+                    - rowgroup [ref=e330]:
+                      - row [ref=e331]:
+                        - columnheader "Allergen" [ref=e332]
+                        - columnheader "Reaction" [ref=e333]
+                    - rowgroup [ref=e334]:
+                      - row [ref=e335]:
+                        - cell [ref=e336]:
+                          - textbox "Allergen" [ref=e339]:
+                            - /placeholder: Enter allergen
+                        - cell [ref=e340]:
+                          - textbox "Reaction" [ref=e343]:
+                            - /placeholder: Enter reaction
+                - generic [ref=e344]:
+                  - generic [ref=e345]: Diet
+                  - group "Diet" [ref=e346]:
+                    - generic [ref=e347]:
+                      - generic [ref=e349]:
+                        - checkbox "Regular diet" [ref=e351]
+                        - generic [ref=e352]: Regular diet
+                      - generic [ref=e355]:
+                        - checkbox "Soft diet" [ref=e357]
+                        - generic [ref=e358]: Soft diet
+                      - generic [ref=e361]:
+                        - checkbox "Texture-modified diet" [ref=e363]
+                        - generic [ref=e364]: Texture-modified diet
+                - generic [ref=e366]:
+                  - generic [ref=e367]: Fluid preference
+                  - combobox "Fluid preference" [ref=e369] [cursor=pointer]
+        - generic [ref=e170]:
+          - button "Back" [ref=e171] [cursor=pointer]
+          - button "Next" [ref=e174] [cursor=pointer]

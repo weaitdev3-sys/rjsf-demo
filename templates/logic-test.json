@@ -64,9 +64,7 @@
             "operator": "isChecked"
           }
         ],
-        "operators": [
-          "or"
-        ]
+        "operators": ["or"]
       }
     },
     {
@@ -88,9 +86,7 @@
             "operator": "isChecked"
           }
         ],
-        "operators": [
-          "and"
-        ]
+        "operators": ["and"]
       }
     },
     {
@@ -115,9 +111,7 @@
                 "operator": "isChecked"
               }
             ],
-            "operators": [
-              "or"
-            ]
+            "operators": ["or"]
           },
           {
             "kind": "group",
@@ -133,15 +127,11 @@
                 "operator": "isChecked"
               }
             ],
-            "operators": [
-              "and"
-            ],
+            "operators": ["and"],
             "not": true
           }
         ],
-        "operators": [
-          "and"
-        ]
+        "operators": ["and"]
       }
     }
   ],
