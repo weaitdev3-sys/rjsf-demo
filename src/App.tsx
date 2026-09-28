@@ -171,6 +171,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 export default function App() {
   const responseId = location.pathname.match(/^\/full-custom\/response\/([^/]+)$/)?.[1] ?? null;
+  const [savedResponseId, setSavedResponseId] = useState<string | null>(responseId);
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [name, setName] = useState('Untitled form');
   const [fields, setFields] = useState<EditableField[]>([]);
@@ -224,7 +225,7 @@ export default function App() {
     void api<FullCustomResponse>(`/api/responses/${responseId}`).then((response) => {
       const template = response.templateSnapshot;
       const loadedPages = template.pages?.length ? template.pages : [{ id: 'page-1', title: 'Page 1', fields: template.fields ?? [] }];
-      setOpenedId(template.id ?? response.templateId); setName(template.name); setPages(loadedPages); setFormLayout(template.formLayout ?? { kind: 'flat' }); setActivePage(0); setFillPage(0); setFields(loadedPages[0].fields); setFillData(response.formData); setMode('fill');
+      setSavedResponseId(response.id); setOpenedId(template.id ?? response.templateId); setName(template.name); setPages(loadedPages); setFormLayout(template.formLayout ?? { kind: 'flat' }); setActivePage(0); setFillPage(0); setFields(loadedPages[0].fields); setFillData(response.formData); setMode('fill');
     }).catch((error) => setMessage(error instanceof Error ? error.message : 'Could not open response'));
   }, [responseId]);
   const updateField = (patch: Partial<EditableField>) => {
@@ -344,10 +345,10 @@ export default function App() {
     const removedIds = selected ? allFields([selected]).map((field) => field.id) : [];
     setFields((current) => clearVisibilityReferences(current.filter((_, index) => index !== selectedIndex), removedIds)); setSelectedIndex(null); clearChildSelection();
   };
-  const createNew = () => { setOpenedId(null); setName('Untitled form'); setFields([]); setPages([{ id: 'page-1', title: 'Page 1', fields: [] }]); setFormLayout({ kind: 'flat' }); setActivePage(0); setFillPage(0); setSelectedIndex(null); setSelectedChildIndex(null); setFillData({}); setMode('build'); setMessage(null); };
+  const createNew = () => { setSavedResponseId(null); setOpenedId(null); setName('Untitled form'); setFields([]); setPages([{ id: 'page-1', title: 'Page 1', fields: [] }]); setFormLayout({ kind: 'flat' }); setActivePage(0); setFillPage(0); setSelectedIndex(null); setSelectedChildIndex(null); setFillData({}); setMode('build'); setMessage(null); };
   const openTemplate = async (id: string) => {
     // Older saved templates predate pages and layouts; load them as one Page 1.
-    try { const template = await api<TemplateSummary>(`/api/templates/${id}`); const loadedPages = template.pages?.length ? template.pages : [{ id: 'page-1', title: 'Page 1', fields: template.fields ?? [] }]; setOpenedId(template.id); setName(template.name); setPages(loadedPages); setFormLayout(template.formLayout ?? { kind: 'flat' }); setActivePage(0); setFillPage(0); setFields(loadedPages[0].fields); setSelectedIndex(null); setSelectedChildIndex(null); setFillData({}); setMode('build'); setMessage(null); }
+    try { const template = await api<TemplateSummary>(`/api/templates/${id}`); const loadedPages = template.pages?.length ? template.pages : [{ id: 'page-1', title: 'Page 1', fields: template.fields ?? [] }]; setSavedResponseId(null); setOpenedId(template.id); setName(template.name); setPages(loadedPages); setFormLayout(template.formLayout ?? { kind: 'flat' }); setActivePage(0); setFillPage(0); setFields(loadedPages[0].fields); setSelectedIndex(null); setSelectedChildIndex(null); setFillData({}); setMode('build'); setMessage(null); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Could not open template'); }
   };
   const addPage = () => {
@@ -380,14 +381,14 @@ export default function App() {
     if (!openedId) { setMessage('Save this form before collecting responses.'); return; }
     try {
       const savedData = pruneHiddenValues(allPageFields, formData ?? fillData);
-      if (responseId) await api(`/api/responses/${responseId}`, { method: 'PATCH', body: JSON.stringify({ formData: savedData }) });
-      else await api('/api/responses', { method: 'POST', body: JSON.stringify({ kind: 'full-custom', templateId: openedId, formData: savedData }) });
-      setMessage(responseId ? 'Saved response updated.' : 'Response saved.');
+      if (savedResponseId) await api(`/api/responses/${savedResponseId}`, { method: 'PATCH', body: JSON.stringify({ formData: savedData }) });
+      else setSavedResponseId((await api<{ id: string }>('/api/responses', { method: 'POST', body: JSON.stringify({ kind: 'full-custom', templateId: openedId, formData: savedData }) })).id);
+      setMessage(savedResponseId ? 'Saved response updated.' : 'Response saved.');
     }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Could not save response'); }
   };
   const print = async () => {
-    if (responseId) { window.open(`/api/responses/${responseId}/html`, '_blank'); return; }
+    if (savedResponseId) { window.open(`/api/responses/${savedResponseId}/html`, '_blank'); return; }
     if (!openedId) { setMessage('Save this form before printing.'); return; }
     const printWindow = window.open('', '_blank');
     if (!printWindow) { setMessage('Allow pop-ups to print this form.'); return; }
@@ -409,7 +410,7 @@ export default function App() {
   const editorKinds = editingChild ? (selected?.kind === 'list' ? listChildKinds : containerChildKinds) : fieldKinds;
 
   return <MantineProvider defaultColorScheme="light"><AppShell padding={0} navbar={{ width: 280, breakpoint: 'sm' }}>
-    <AppShell.Navbar p="md" className="sidebar"><Group justify="space-between" mb="xl"><Title order={3}>Form Foundry</Title><Badge color="violet">local</Badge></Group><Button fullWidth onClick={createNew} mb="md">+ New template</Button><Text size="xs" fw={700} c="dimmed" tt="uppercase" mb="xs">Template library</Text><ScrollArea flex={1}>{templates.map((template) => <Button key={template.id} variant={openedId === template.id ? 'light' : 'subtle'} color="dark" justify="start" fullWidth onClick={() => void openTemplate(template.id)}>{template.name}</Button>)}</ScrollArea></AppShell.Navbar>
+    <AppShell.Navbar p="md" className="sidebar"><Group justify="space-between" mb="xl"><Title order={3}>Form Foundry</Title><Badge color="violet">local</Badge></Group><Button fullWidth onClick={createNew} mb="md">+ New template</Button><Button fullWidth variant="light" onClick={() => { window.location.href = '/responses?kind=full-custom'; }} mb="md">Saved responses</Button><Text size="xs" fw={700} c="dimmed" tt="uppercase" mb="xs">Template library</Text><ScrollArea flex={1}>{templates.map((template) => <Button key={template.id} variant={openedId === template.id ? 'light' : 'subtle'} color="dark" justify="start" fullWidth onClick={() => void openTemplate(template.id)}>{template.name}</Button>)}</ScrollArea></AppShell.Navbar>
     <AppShell.Main><Box p="lg" className="topbar"><Group justify="space-between"><Box><Text size="sm" c="dimmed">Reusable JSON-schema templates</Text><TextInput value={name} onChange={(event) => setName(event.currentTarget.value)} variant="unstyled" aria-label="Template name" styles={{ input: { fontSize: '1.5rem', fontWeight: 700 } }} /></Box><Group><Button variant={mode === 'build' ? 'filled' : 'light'} onClick={() => setMode('build')}>Build</Button><Button variant={mode === 'fill' ? 'filled' : 'light'} onClick={() => setMode('fill')}>Fill form</Button><Button onClick={() => void save()}>Save template</Button></Group></Group></Box>
       {(message || buildResult.error) && <Alert color={buildResult.error ? 'red' : 'violet'} m="lg" withCloseButton={!buildResult.error} onClose={() => setMessage(null)}>{buildResult.error ?? message}</Alert>}
       {mode === 'fill' && formLayout.kind === 'stepper' && <Paper p="md" mx="auto" mt="lg" maw={760} withBorder><Group justify="space-between"><Text>Step {fillPage + 1} of {persistedPages.length}</Text><Group>{persistedPages.map((page, index) => <Button key={page.id} size="xs" variant={index === fillPage ? 'filled' : 'light'} disabled={formLayout.navigation === 'sequential' && index > fillPage + 1} onClick={() => setFillPage(index)}>{page.title}</Button>)}</Group><Group><Button variant="default" disabled={fillPage === 0} onClick={() => setFillPage((current) => current - 1)}>Back</Button><Button disabled={fillPage === persistedPages.length - 1} onClick={() => setFillPage((current) => current + 1)}>Next</Button></Group></Group></Paper>}

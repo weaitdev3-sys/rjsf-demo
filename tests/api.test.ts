@@ -25,6 +25,17 @@ describe('template API', () => {
     expect(updated.body).toMatchObject({ id: created.body.id, createdAt: created.body.createdAt, formData: { name: 'Bea' } });
     expect(listed.body).toEqual([expect.objectContaining({ id: created.body.id })]);
   });
+
+  it('rejects malformed saved response data', async () => {
+    const storageRoot = await mkdtemp(path.join(os.tmpdir(), 'form-builder-'));
+    temporaryDirectories.push(storageRoot);
+    const app = createApp(storageRoot);
+    await request(app).post('/api/templates').send({ name: 'Response form', schema: { title: 'Response form', type: 'object', properties: {} }, uiSchema: {} });
+    const plan = await request(app).post('/api/semi/care-plans').send({ name: 'Care response', structure: 'consolidated', services: [] });
+
+    expect((await request(app).post('/api/responses').send({ kind: 'full-custom', templateId: 'response-form', formData: null })).status).toBe(400);
+    expect((await request(app).post('/api/responses').send({ kind: 'semi-care-plan', templateId: plan.body.id, formData: { participant: {}, generalInfo: 1, servInfo: {}, services: {} } })).status).toBe(400);
+  });
   it('resolves the production static directory from an ES module URL', () => {
     expect(resolveStaticDirectory('file:///app/server/app.ts')).toBe('/app/dist');
   });

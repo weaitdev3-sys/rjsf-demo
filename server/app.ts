@@ -119,6 +119,7 @@ export function createApp(storageRoot?: string) {
       const { kind, templateId, formData } = request.body as { kind?: ResponseKind; templateId?: string; formData?: unknown };
       if (!templateId || !kind || formData === undefined) return response.status(400).json({ error: 'kind, templateId and formData are required' });
       if (kind === 'full-custom') {
+        if (!isRecord(formData)) return response.status(400).json({ error: 'Invalid full-custom response data' });
         const template = await store.getTemplate(templateId);
         return response.status(201).json(await store.createResponse({ kind, templateId: template.id!, templateName: template.name, templateSnapshot: template, formData: formData as Record<string, unknown> }));
       }
@@ -137,6 +138,7 @@ export function createApp(storageRoot?: string) {
     try {
       if (Object.keys(request.body).length !== 1 || request.body.formData === undefined) return response.status(400).json({ error: 'formData is required' });
       const existing = await store.getResponse(request.params.id);
+      if (existing.kind === 'full-custom' && !isRecord(request.body.formData)) return response.status(400).json({ error: 'Invalid full-custom response data' });
       if (existing.kind === 'semi-care-plan' && !isSemiCarePlanResponseData(request.body.formData)) return response.status(400).json({ error: 'Invalid semi-care-plan response data' });
       response.json(await store.updateResponse(request.params.id, request.body.formData));
     } catch (error) { next(error); }

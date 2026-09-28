@@ -6,7 +6,7 @@ const go = (path: string) => { window.location.href = path; };
 
 export function ResponseLibrary() {
   const [responses, setResponses] = useState<SavedResponse[]>([]);
-  const [kind, setKind] = useState<ResponseKind | 'all'>('all');
+  const [kind, setKind] = useState<ResponseKind | 'all'>((new URLSearchParams(window.location.search).get('kind') as ResponseKind | null) ?? 'all');
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [error, setError] = useState<string>();
   useEffect(() => { fetch('/api/responses').then(async (result) => { if (!result.ok) throw new Error('Could not load responses'); return result.json() as Promise<SavedResponse[]>; }).then(setResponses).catch((reason) => setError(reason.message)); }, []);

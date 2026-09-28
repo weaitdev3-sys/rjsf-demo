@@ -60,17 +60,18 @@ export function createEmptySemiCarePlanResponseData(template: SemiCarePlanTempla
   };
 }
 
-const isStringRecord = (value: unknown): value is Record<string, string> => Boolean(value) && typeof value === 'object' && !Array.isArray(value) && Object.values(value as Record<string, unknown>).every((item) => typeof item === 'string');
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+const isStringRecord = (value: unknown): value is Record<string, string> => isRecord(value) && Object.values(value).every((item) => typeof item === 'string');
 
 export function isSemiCarePlanResponseData(value: unknown): value is SemiCarePlanResponseData {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const data = value as Partial<SemiCarePlanResponseData>;
-  if (!isStringRecord(data.participant) || !isStringRecord(data.servInfo) || !data.generalInfo || !data.services) return false;
+  if (!isStringRecord(data.participant) || !isStringRecord(data.servInfo) || !isRecord(data.generalInfo) || !isRecord(data.services)) return false;
   if (!Object.values(data.generalInfo).every(isStringRecord)) return false;
   return Object.values(data.services).every((service) => {
-    if (!service || typeof service !== 'object') return false;
-    return (!service.schedule || isStringRecord(service.schedule)) &&
-      (!service.sections || isStringRecord(service.sections)) &&
-      (!service.itemList || (Array.isArray(service.itemList) && service.itemList.every(isStringRecord)));
+    if (!isRecord(service)) return false;
+    return (service.schedule === undefined || isStringRecord(service.schedule)) &&
+      (service.sections === undefined || isStringRecord(service.sections)) &&
+      (service.itemList === undefined || (Array.isArray(service.itemList) && service.itemList.every(isStringRecord)));
   });
 }
