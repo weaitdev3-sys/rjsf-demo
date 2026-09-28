@@ -1,8 +1,45 @@
 import { describe, expect, it } from 'vitest';
 import { renderPrintableHtml } from '../server/printRenderer';
+import { renderSemiCarePlanHtml } from '../server/semiPrintRenderer';
 import type { TemplateDocument } from '../src/domain/templateSchema';
+import type { SemiCarePlanTemplate } from '../src/domain/semiCustom';
 
 describe('print renderer', () => {
+  it('renders a saved Per-SERV care-plan snapshot as printable HTML', () => {
+    const carePlan: SemiCarePlanTemplate = {
+      name: 'Home support plan',
+      structure: 'per-serv',
+      services: [{ code: 'PC-01', name: 'Showering & Grooming Assistance', category: 'Personal Care' }],
+      participantFields: ['Full Legal Name & Preferred Name'],
+      generalInfo: { health: ['Mobility'] },
+      assignments: [{
+        serviceCode: 'PC-01',
+        subform: {
+          id: 'personal-care',
+          name: 'Personal care',
+          configuration: {
+            schedule: { timeFormat: 'start-end' },
+            itemList: { columns: ['Description', 'Frequency'] },
+            sections: { careNeeds: true },
+          },
+        },
+      }],
+    };
+
+    const html = renderSemiCarePlanHtml(carePlan);
+
+    expect(html).toContain('<title>Home support plan</title>');
+    expect(html).toContain('Participant Details');
+    expect(html).toContain('Full Legal Name &amp; Preferred Name');
+    expect(html).toContain('Health Summary');
+    expect(html).toContain('Mobility');
+    expect(html).toContain('PC-01 · Showering &amp; Grooming Assistance');
+    expect(html).toContain('Start–end time');
+    expect(html).toContain('<th>Description</th>');
+    expect(html).toContain('<th>Frequency</th>');
+    expect(html).toContain('Care Needs');
+  });
+
   it('renders visible builder fields into an A4 HTML document', () => {
     const template: TemplateDocument = {
       name: 'Client intake',

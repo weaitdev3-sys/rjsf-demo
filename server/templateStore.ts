@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import type { TemplateDocument } from '../src/domain/templateSchema';
 import type { SemiCarePlanTemplate, SemiSubformTemplate } from '../src/domain/semiCustom';
+import type { SavedResponse } from '../src/domain/response';
 
 export function safeTemplateId(id: string): string {
   if (!/^[a-z0-9][a-z0-9_-]*$/i.test(id)) throw new Error('Invalid template id');
@@ -42,12 +43,14 @@ export class TemplateStore {
   private readonly submissionsDirectory: string;
   private readonly semiSubformsDirectory: string;
   private readonly semiCarePlansDirectory: string;
+  private readonly responsesDirectory: string;
 
   constructor(root = defaultStorageRoot()) {
     this.templatesDirectory = path.resolve(root, 'templates');
     this.submissionsDirectory = path.resolve(root, 'submissions');
     this.semiSubformsDirectory = path.resolve(root, 'semi-subforms');
     this.semiCarePlansDirectory = path.resolve(root, 'semi-care-plans');
+    this.responsesDirectory = path.resolve(root, 'responses');
   }
 
   async listTemplates(): Promise<TemplateDocument[]> {
@@ -122,11 +125,46 @@ export class TemplateStore {
     return templates.filter((template) => template.id && template.name && template.structure && Array.isArray(template.services)).sort((left, right) => left.name.localeCompare(right.name));
   }
 
+  async getSemiCarePlan(id: string): Promise<SemiCarePlanTemplate> {
+    const safeId = safeTemplateId(id);
+    const parsed = JSON.parse(await readFile(path.join(this.semiCarePlansDirectory, `${safeId}.json`), 'utf8')) as SemiCarePlanTemplate;
+    if (parsed.id !== safeId || !parsed.name || !parsed.structure || !Array.isArray(parsed.services)) throw new Error('Malformed semi-custom care plan');
+    return parsed;
+  }
+
   async saveSemiCarePlan(template: SemiCarePlanTemplate): Promise<SemiCarePlanTemplate> {
     const id = safeTemplateId(template.id ?? template.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
     const now = new Date().toISOString();
     const saved = { ...template, id, createdAt: template.createdAt ?? now, updatedAt: now };
     await writeJson(this.semiCarePlansDirectory, `${id}.json`, saved);
+    return saved;
+  }
+
+  async createResponse(response: Omit<SavedResponse, 'id' | 'createdAt' | 'updatedAt'>): Promise<SavedResponse> {
+    const now = new Date().toISOString();
+    const saved = { ...response, id: randomUUID(), createdAt: now, updatedAt: now } as SavedResponse;
+    await writeJson(this.responsesDirectory, `${saved.id}.json`, saved);
+    return saved;
+  }
+
+  async getResponse(id: string): Promise<SavedResponse> {
+    const safeId = safeTemplateId(id);
+    const parsed = JSON.parse(await readFile(path.join(this.responsesDirectory, `${safeId}.json`), 'utf8')) as SavedResponse;
+    if (!parsed.id || parsed.id !== safeId || !parsed.kind || !parsed.templateSnapshot) throw new Error('Malformed response');
+    return parsed;
+  }
+
+  async listResponses(filters: { kind?: string; templateId?: string } = {}): Promise<SavedResponse[]> {
+    await mkdir(this.responsesDirectory, { recursive: true });
+    const files = await readdir(this.responsesDirectory);
+    const responses = await Promise.all(files.filter((file) => file.endsWith('.json')).map(async (file) => JSON.parse(await readFile(path.join(this.responsesDirectory, file), 'utf8')) as SavedResponse));
+    return responses.filter((response) => (!filters.kind || response.kind === filters.kind) && (!filters.templateId || response.templateId === filters.templateId)).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  }
+
+  async updateResponse(id: string, formData: unknown): Promise<SavedResponse> {
+    const existing = await this.getResponse(id);
+    const saved = { ...existing, formData, updatedAt: new Date().toISOString() } as SavedResponse;
+    await writeJson(this.responsesDirectory, `${existing.id}.json`, saved);
     return saved;
   }
 }
