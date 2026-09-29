@@ -44,6 +44,7 @@ export type ListRowVisibilityClause = {
   fieldId: string;
   operator: VisibilityOperator;
   value?: string | number;
+  not?: boolean;
 };
 
 export type VisibilityGroup<TClause = VisibilityClause> = {
@@ -51,21 +52,34 @@ export type VisibilityGroup<TClause = VisibilityClause> = {
   clauses: TClause[];
 };
 
+export interface VisibilityExpressionGroup {
+  kind: 'group';
+  not?: boolean;
+  operands: VisibilityExpression[];
+  operators: ('and' | 'or')[];
+}
+
+export interface ListRowVisibilityExpressionGroup {
+  kind: 'group';
+  not?: boolean;
+  operands: ListRowVisibilityExpression[];
+  operators: ('and' | 'or')[];
+}
+
+export type ListRowVisibilityExpression =
+  ListRowVisibilityClause | ListRowVisibilityExpressionGroup;
+export type ListRowVisibilityGroup =
+  VisibilityGroup<ListRowVisibilityClause> | ListRowVisibilityExpressionGroup;
+
 export type ListVisibilityClause = {
   kind: 'list';
   not?: boolean;
   listId: string;
   quantifier: 'any' | 'all';
-  conditions: VisibilityGroup<ListRowVisibilityClause>;
+  conditions: ListRowVisibilityGroup;
 };
 
 export type VisibilityClause = FieldVisibilityClause | ListVisibilityClause;
-export type VisibilityExpressionGroup = {
-  kind: 'group';
-  not?: boolean;
-  operands: VisibilityExpression[];
-  operators: ('and' | 'or')[];
-};
 export type VisibilityExpression = VisibilityClause | VisibilityExpressionGroup;
 export type VisibilityRule = LegacyVisibilityRule | VisibilityGroup | VisibilityExpressionGroup;
 
@@ -294,6 +308,18 @@ const normalizeVisibilityRule = (rule: VisibilityRule): VisibilityExpressionGrou
     operators: rule.clauses.slice(1).map(() => rule.combinator),
   };
 };
+const normalizeListRowGroup = (group: ListRowVisibilityGroup): ListRowVisibilityExpressionGroup =>
+  'operands' in group
+    ? group
+    : {
+        kind: 'group',
+        operands: group.clauses,
+        operators: group.clauses.slice(1).map(() => group.combinator),
+      };
+const listRowReferences = (group: ListRowVisibilityGroup): string[] =>
+  normalizeListRowGroup(group).operands.flatMap((expression) =>
+    'fieldId' in expression ? [expression.fieldId] : listRowReferences(expression),
+  );
 const visibilityReferences = (rule: VisibilityRule | undefined): string[] => {
   if (!rule) return [];
   if (isLegacyVisibilityRule(rule)) return [rule.controllerId];
@@ -303,7 +329,7 @@ const visibilityReferences = (rule: VisibilityRule | undefined): string[] => {
       ? visibilityReferences(clause)
       : clause.kind === 'field'
         ? [clause.controllerId]
-        : [clause.listId, ...clause.conditions.clauses.map((condition) => condition.fieldId)],
+        : [clause.listId, ...listRowReferences(clause.conditions)],
   );
 };
 
@@ -389,27 +415,45 @@ export function validateVisibilityRules(fields: EditableField[]) {
         const list = references.get(clause.listId);
         if (!list || list.listItem || list.field.kind !== 'list')
           throw new Error('List visibility rule must reference a repeatable list');
-        if (!clause.conditions.clauses.length)
-          throw new Error('List visibility rule requires at least one row condition');
-        for (const condition of clause.conditions.clauses) {
-          const child = references.get(condition.fieldId);
+        const validateListGroup = (current: ListRowVisibilityGroup) => {
+          const normalized = normalizeListRowGroup(current);
           if (
-            !child ||
-            !child.listItem ||
-            child.parentId !== clause.listId ||
-            !controllerKinds.includes(child.field.kind)
+            !normalized.operands.length ||
+            normalized.operators.length !== Math.max(0, normalized.operands.length - 1)
           )
-            throw new Error('List visibility rule must reference a direct list-item field');
-          if (!supportedOperators(child.field.kind).includes(condition.operator))
-            throw new Error('List visibility rule operator is not compatible with its item field');
-          if (
-            ['equals', 'notEquals', 'greaterThan', 'lessThan', 'includes', 'notIncludes'].includes(
-              condition.operator,
-            ) &&
-            condition.value === undefined
-          )
-            throw new Error('List visibility rule requires a comparison value');
-        }
+            throw new Error('List visibility rule requires linked row conditions');
+          for (const condition of normalized.operands) {
+            if (!('fieldId' in condition)) {
+              validateListGroup(condition);
+              continue;
+            }
+            const child = references.get(condition.fieldId);
+            if (
+              !child ||
+              !child.listItem ||
+              child.parentId !== clause.listId ||
+              !controllerKinds.includes(child.field.kind)
+            )
+              throw new Error('List visibility rule must reference a direct list-item field');
+            if (!supportedOperators(child.field.kind).includes(condition.operator))
+              throw new Error(
+                'List visibility rule operator is not compatible with its item field',
+              );
+            if (
+              [
+                'equals',
+                'notEquals',
+                'greaterThan',
+                'lessThan',
+                'includes',
+                'notIncludes',
+              ].includes(condition.operator) &&
+              condition.value === undefined
+            )
+              throw new Error('List visibility rule requires a comparison value');
+          }
+        };
+        validateListGroup(clause.conditions);
         addEdge(id, clause.listId);
       }
     };
@@ -453,7 +497,7 @@ export function evaluateVisibleFields(fields: EditableField[], formData: unknown
     const matches = (left: boolean, operator: 'and' | 'or', right: boolean) =>
       operator === 'and' ? left && right : left || right;
     const evaluateExpression = (expression: VisibilityExpression): boolean => {
-      const matches = (() => {
+      const expressionMatches = (() => {
         if (expression.kind === 'group') return evaluateGroup(expression);
         if (expression.kind === 'field') {
           if (!isVisible(expression.controllerId)) return false;
@@ -467,16 +511,28 @@ export function evaluateVisibleFields(fields: EditableField[], formData: unknown
         if (!Array.isArray(rows) || rows.length === 0) return false;
         const rowMatches = (row: unknown) => {
           if (!isRecord(row)) return false;
-          const values = expression.conditions.clauses.map((condition) =>
-            ruleMatches(condition, row[fieldKeys.get(condition.fieldId) ?? '']),
-          );
-          return expression.conditions.combinator === 'and'
-            ? values.every(Boolean)
-            : values.some(Boolean);
+          const evaluateRowExpression = (rowExpression: ListRowVisibilityExpression): boolean => {
+            const expressionMatches =
+              'fieldId' in rowExpression
+                ? ruleMatches(rowExpression, row[fieldKeys.get(rowExpression.fieldId) ?? ''])
+                : evaluateRowGroup(rowExpression);
+            return rowExpression.not ? !expressionMatches : expressionMatches;
+          };
+          const evaluateRowGroup = (rowGroup: ListRowVisibilityGroup): boolean => {
+            const normalized = normalizeListRowGroup(rowGroup);
+            return normalized.operands
+              .map(evaluateRowExpression)
+              .reduce(
+                (result, value, index) =>
+                  index === 0 ? value : matches(result, normalized.operators[index - 1], value),
+                false,
+              );
+          };
+          return evaluateRowGroup(expression.conditions);
         };
         return expression.quantifier === 'any' ? rows.some(rowMatches) : rows.every(rowMatches);
       })();
-      return expression.not ? !matches : matches;
+      return expression.not ? !expressionMatches : expressionMatches;
     };
     const evaluateGroup = (group: VisibilityExpressionGroup): boolean =>
       group.operands

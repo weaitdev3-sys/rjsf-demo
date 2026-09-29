@@ -343,6 +343,63 @@ describe('template document contract', () => {
     ).toThrow('cycle');
   });
 
+  it('evaluates nested list-row conditions before applying the list match', () => {
+    const fields = [
+      {
+        id: 'items',
+        kind: 'list' as const,
+        label: 'Items',
+        children: [
+          { id: 'col-a', kind: 'text' as const, label: 'Column A' },
+          { id: 'col-b', kind: 'text' as const, label: 'Column B' },
+          { id: 'col-c', kind: 'text' as const, label: 'Column C' },
+        ],
+      },
+      {
+        id: 'details',
+        kind: 'text' as const,
+        label: 'Details',
+        visibility: {
+          kind: 'group' as const,
+          operands: [
+            {
+              kind: 'list' as const,
+              listId: 'items',
+              quantifier: 'any' as const,
+              conditions: {
+                kind: 'group' as const,
+                operands: [
+                  {
+                    kind: 'group' as const,
+                    operands: [
+                      { fieldId: 'col-a', operator: 'equals' as const, value: 'Yes' },
+                      { fieldId: 'col-b', operator: 'equals' as const, value: 'Yes' },
+                    ],
+                    operators: ['or' as const],
+                  },
+                  { fieldId: 'col-c', operator: 'equals' as const, value: 'Ready' },
+                ],
+                operators: ['and' as const],
+              },
+            },
+          ],
+          operators: [],
+        },
+      },
+    ];
+
+    expect(
+      evaluateVisibleFields(fields, {
+        items: [{ column_a: 'No', column_b: 'Yes', column_c: 'Ready' }],
+      }).map((field) => field.id),
+    ).toEqual(['items', 'details']);
+    expect(
+      evaluateVisibleFields(fields, {
+        items: [{ column_a: 'Yes', column_b: 'No', column_c: 'Not ready' }],
+      }).map((field) => field.id),
+    ).toEqual(['items']);
+  });
+
   it('prunes a conditional container and its nested answer', () => {
     const fields = [
       { id: 'enabled', kind: 'checkbox' as const, label: 'Include details' },

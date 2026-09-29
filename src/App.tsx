@@ -12,6 +12,7 @@ import {
   Modal,
   NumberInput,
   Paper,
+  Radio,
   ScrollArea,
   Select,
   SimpleGrid,
@@ -31,6 +32,9 @@ import type {
   FieldVisibilityClause,
   FormLayout,
   ListRowVisibilityClause,
+  ListRowVisibilityExpression,
+  ListRowVisibilityExpressionGroup,
+  ListRowVisibilityGroup,
   ListVisibilityClause,
   TemplateDocument,
   TemplatePage,
@@ -55,10 +59,8 @@ type TemplateSummary = TemplateDocument & { id: string };
 // The palette and settings type selector share this single source of field labels.
 const fieldKinds: { kind: FieldKind; label: string }[] = [
   { kind: 'text', label: 'Text field' },
-  { kind: 'textarea', label: 'Long text' },
+  { kind: 'textarea', label: 'Paragraph' },
   { kind: 'number', label: 'Number' },
-  { kind: 'email', label: 'Email' },
-  { kind: 'phone', label: 'Phone' },
   { kind: 'date', label: 'Date picker' },
   { kind: 'time', label: 'Time picker' },
   { kind: 'select', label: 'Select' },
@@ -77,18 +79,7 @@ const inputKinds = fieldKinds.filter(
   ({ kind }) => !['container', 'heading', 'textLayout', 'twoColumn', 'tabs'].includes(kind),
 );
 const commonInputKinds = inputKinds.filter(({ kind }) =>
-  [
-    'text',
-    'textarea',
-    'number',
-    'email',
-    'phone',
-    'date',
-    'time',
-    'select',
-    'radio',
-    'checkbox',
-  ].includes(kind),
+  ['text', 'textarea', 'number', 'date', 'time', 'select', 'radio', 'checkbox'].includes(kind),
 );
 const advancedInputKinds = inputKinds.filter(
   ({ kind }) => !commonInputKinds.some((item) => item.kind === kind),
@@ -336,10 +327,12 @@ function VisibilityEditor({
         : { value: controller.options?.[0] ?? '' }),
     };
   };
-  const firstListClause = (): ListVisibilityClause | undefined => {
-    const list = lists.find((candidate) =>
-      (candidate.children ?? []).some((child) => visibilityControllerKinds.includes(child.kind)),
-    );
+  const firstListClause = (selectedList?: EditableField): ListVisibilityClause | undefined => {
+    const list =
+      selectedList ??
+      lists.find((candidate) =>
+        (candidate.children ?? []).some((child) => visibilityControllerKinds.includes(child.kind)),
+      );
     const child = list?.children?.find((candidate) =>
       visibilityControllerKinds.includes(candidate.kind),
     );
@@ -365,6 +358,14 @@ function VisibilityEditor({
   };
   const updateExpression = (next: VisibilityExpressionGroup) => onChange(next);
   const defaultExpression = () => firstFieldClause() ?? firstListClause();
+  const normalizeRowGroup = (rowGroup: ListRowVisibilityGroup): ListRowVisibilityExpressionGroup =>
+    'operands' in rowGroup
+      ? rowGroup
+      : {
+          kind: 'group',
+          operands: rowGroup.clauses,
+          operators: rowGroup.clauses.slice(1).map(() => rowGroup.combinator),
+        };
   const renderListClause = (
     clause: ListVisibilityClause,
     update: (next: VisibilityClause) => void,
@@ -373,16 +374,200 @@ function VisibilityEditor({
     const rowFields =
       list?.children?.filter((candidate) => visibilityControllerKinds.includes(candidate.kind)) ??
       [];
-    const updateRow = (rowIndex: number, condition: ListRowVisibilityClause) =>
-      update({
-        ...clause,
-        conditions: {
-          ...clause.conditions,
-          clauses: clause.conditions.clauses.map((item, itemIndex) =>
-            itemIndex === rowIndex ? condition : item,
-          ),
-        },
-      });
+    const defaultRowCondition = (rowField = rowFields[0]): ListRowVisibilityClause | undefined => {
+      if (!rowField) return undefined;
+      const operator = visibilityOperators(rowField.kind)[0].value;
+      return {
+        fieldId: rowField.id,
+        operator,
+        ...(operator === 'isChecked' || operator === 'isUnchecked'
+          ? {}
+          : { value: rowField.options?.[0] ?? '' }),
+      };
+    };
+    const renderRowExpression = (
+      expression: ListRowVisibilityExpression,
+      updateRowExpression: (next: ListRowVisibilityExpression) => void,
+      remove: () => void,
+      canRemove: boolean,
+    ): React.ReactNode => {
+      if (!('fieldId' in expression))
+        return (
+          <Paper p="sm" withBorder bg="gray.0">
+            <Group justify="space-between" mb="xs">
+              <Text fw={600} size="sm">
+                Condition group
+              </Text>
+              <Group gap="xs">
+                <Checkbox
+                  label="Negate this group"
+                  checked={Boolean(expression.not)}
+                  onChange={(event) =>
+                    updateRowExpression({
+                      ...expression,
+                      not: event.currentTarget.checked || undefined,
+                    })
+                  }
+                />
+                <Button
+                  size="xs"
+                  color="red"
+                  variant="subtle"
+                  disabled={!canRemove}
+                  onClick={remove}
+                >
+                  Remove group
+                </Button>
+              </Group>
+            </Group>
+            {renderRowGroup(expression, updateRowExpression)}
+          </Paper>
+        );
+      const rowField = rowFields.find((candidate) => candidate.id === expression.fieldId);
+      if (!rowField) return null;
+      const changeRowField = (fieldId: string | null) => {
+        const nextField = rowFields.find((candidate) => candidate.id === fieldId);
+        const condition = defaultRowCondition(nextField);
+        if (condition) updateRowExpression({ ...condition, not: expression.not });
+      };
+      return (
+        <Paper p="sm" withBorder>
+          <Stack gap="xs">
+            <Group justify="space-between">
+              <Text fw={600} size="sm">
+                Row condition
+              </Text>
+              <Button size="xs" color="red" variant="subtle" disabled={!canRemove} onClick={remove}>
+                Remove condition
+              </Button>
+            </Group>
+            <Checkbox
+              label="Negate this condition"
+              checked={Boolean(expression.not)}
+              onChange={(event) =>
+                updateRowExpression({
+                  ...expression,
+                  not: event.currentTarget.checked || undefined,
+                })
+              }
+            />
+            <Select
+              label="Row field"
+              data={rowFields.map((candidate) => ({ value: candidate.id, label: candidate.label }))}
+              value={expression.fieldId}
+              onChange={changeRowField}
+            />
+            <Select
+              label="Operator"
+              data={visibilityOperators(rowField.kind)}
+              value={expression.operator}
+              onChange={(operator) =>
+                operator &&
+                updateRowExpression({
+                  ...expression,
+                  operator: operator as VisibilityOperator,
+                  ...(['isBlank', 'isNotBlank', 'isChecked', 'isUnchecked'].includes(operator)
+                    ? { value: undefined }
+                    : {}),
+                })
+              }
+            />
+            <ConditionValue
+              controller={rowField}
+              condition={expression}
+              onChange={(next) => updateRowExpression({ ...expression, ...next })}
+            />
+          </Stack>
+        </Paper>
+      );
+    };
+    const renderRowGroup = (
+      current: ListRowVisibilityExpressionGroup,
+      updateRowGroup: (next: ListRowVisibilityExpressionGroup) => void,
+    ): React.ReactNode => (
+      <Stack gap="xs">
+        {current.operands.map((operand, index) => (
+          <Stack key={index} gap="xs">
+            {index > 0 && (
+              <Select
+                aria-label={`Row connector ${index}`}
+                data={[
+                  { value: 'and', label: 'AND' },
+                  { value: 'or', label: 'OR' },
+                ]}
+                value={current.operators[index - 1]}
+                onChange={(operator) =>
+                  operator &&
+                  updateRowGroup({
+                    ...current,
+                    operators: current.operators.map((item, itemIndex) =>
+                      itemIndex === index - 1 ? (operator as 'and' | 'or') : item,
+                    ),
+                  })
+                }
+              />
+            )}
+            {renderRowExpression(
+              operand,
+              (next) =>
+                updateRowGroup({
+                  ...current,
+                  operands: current.operands.map((item, itemIndex) =>
+                    itemIndex === index ? next : item,
+                  ),
+                }),
+              () =>
+                updateRowGroup({
+                  ...current,
+                  operands: current.operands.filter((_, itemIndex) => itemIndex !== index),
+                  operators: current.operators.filter(
+                    (_, itemIndex) =>
+                      itemIndex !== (index === current.operands.length - 1 ? index - 1 : index),
+                  ),
+                }),
+              current.operands.length > 1,
+            )}
+          </Stack>
+        ))}
+        <Group>
+          <Button
+            size="xs"
+            variant="light"
+            disabled={!rowFields.length}
+            onClick={() => {
+              const condition = defaultRowCondition();
+              if (!condition) return;
+              updateRowGroup({
+                ...current,
+                operands: [...current.operands, condition],
+                operators: [...current.operators, 'and'],
+              });
+            }}
+          >
+            Add row condition
+          </Button>
+          <Button
+            size="xs"
+            variant="light"
+            disabled={!rowFields.length}
+            onClick={() => {
+              const condition = defaultRowCondition();
+              if (!condition) return;
+              updateRowGroup({
+                ...current,
+                operands: [
+                  ...current.operands,
+                  { kind: 'group', operands: [condition], operators: [] },
+                ],
+                operators: [...current.operators, 'and'],
+              });
+            }}
+          >
+            Add nested row group
+          </Button>
+        </Group>
+      </Stack>
+    );
     return (
       <>
         <Select
@@ -400,8 +585,8 @@ function VisibilityEditor({
               ...clause,
               listId: nextList.id,
               conditions: {
-                combinator: 'and',
-                clauses: [
+                kind: 'group',
+                operands: [
                   {
                     fieldId: nextField.id,
                     operator,
@@ -410,6 +595,7 @@ function VisibilityEditor({
                       : { value: nextField.options?.[0] ?? '' }),
                   },
                 ],
+                operators: [],
               },
             });
           }}
@@ -425,116 +611,12 @@ function VisibilityEditor({
             quantifier && update({ ...clause, quantifier: quantifier as 'any' | 'all' })
           }
         />
-        <Select
-          label="Row match"
-          data={[
-            { value: 'and', label: 'All row conditions (AND)' },
-            { value: 'or', label: 'Any row condition (OR)' },
-          ]}
-          value={clause.conditions.combinator}
-          onChange={(combinator) =>
-            combinator &&
-            update({
-              ...clause,
-              conditions: { ...clause.conditions, combinator: combinator as 'and' | 'or' },
-            })
-          }
-        />
-        {clause.conditions.clauses.map((condition, rowIndex) => {
-          const rowField = rowFields.find((candidate) => candidate.id === condition.fieldId);
-          if (!rowField) return null;
-          return (
-            <Group key={rowIndex} align="end">
-              <Select
-                label={`Row field ${rowIndex + 1}`}
-                data={rowFields.map((candidate) => ({
-                  value: candidate.id,
-                  label: candidate.label,
-                }))}
-                value={condition.fieldId}
-                onChange={(value) => {
-                  const nextField = rowFields.find((candidate) => candidate.id === value);
-                  if (!nextField) return;
-                  const operator = visibilityOperators(nextField.kind)[0].value;
-                  updateRow(rowIndex, {
-                    fieldId: nextField.id,
-                    operator,
-                    ...(operator === 'isChecked' || operator === 'isUnchecked'
-                      ? {}
-                      : { value: nextField.options?.[0] ?? '' }),
-                  });
-                }}
-              />
-              <Select
-                label={`Row operator ${rowIndex + 1}`}
-                data={visibilityOperators(rowField.kind)}
-                value={condition.operator}
-                onChange={(operator) =>
-                  operator &&
-                  updateRow(rowIndex, {
-                    ...condition,
-                    operator: operator as VisibilityOperator,
-                    ...(['isBlank', 'isNotBlank', 'isChecked', 'isUnchecked'].includes(operator)
-                      ? { value: undefined }
-                      : {}),
-                  })
-                }
-              />
-              <ConditionValue
-                controller={rowField}
-                condition={condition}
-                onChange={(next) => updateRow(rowIndex, { ...condition, ...next })}
-              />
-              <Button
-                size="xs"
-                color="red"
-                variant="subtle"
-                disabled={clause.conditions.clauses.length === 1}
-                onClick={() =>
-                  update({
-                    ...clause,
-                    conditions: {
-                      ...clause.conditions,
-                      clauses: clause.conditions.clauses.filter(
-                        (_, itemIndex) => itemIndex !== rowIndex,
-                      ),
-                    },
-                  })
-                }
-              >
-                Remove row
-              </Button>
-            </Group>
-          );
-        })}
-        <Button
-          size="xs"
-          variant="light"
-          disabled={!rowFields.length}
-          onClick={() => {
-            const next = rowFields[0];
-            if (!next) return;
-            const operator = visibilityOperators(next.kind)[0].value;
-            update({
-              ...clause,
-              conditions: {
-                ...clause.conditions,
-                clauses: [
-                  ...clause.conditions.clauses,
-                  {
-                    fieldId: next.id,
-                    operator,
-                    ...(operator === 'isChecked' || operator === 'isUnchecked'
-                      ? {}
-                      : { value: next.options?.[0] ?? '' }),
-                  },
-                ],
-              },
-            });
-          }}
-        >
-          Add row condition
-        </Button>
+        <Text size="sm" c="dimmed">
+          Combine row conditions with AND, OR, and nested groups.
+        </Text>
+        {renderRowGroup(normalizeRowGroup(clause.conditions), (conditions) =>
+          update({ ...clause, conditions }),
+        )}
       </>
     );
   };
@@ -581,6 +663,15 @@ function VisibilityEditor({
           : { value: controller.options?.[0] ?? '' }),
       });
     };
+    const changeToList = (listId: string | null) => {
+      const list = lists.find((candidate) => candidate.id === listId);
+      const clause = list && firstListClause(list);
+      if (clause) update({ ...clause, not: expression.not });
+    };
+    const selectedSource =
+      expression.kind === 'field'
+        ? `field:${expression.controllerId}`
+        : `list:${expression.listId}`;
     return (
       <Paper p="sm" withBorder>
         <Stack gap="xs">
@@ -600,20 +691,24 @@ function VisibilityEditor({
             }
           />
           <Select
-            label="Condition type"
+            label="Show when"
             data={[
-              { value: 'field', label: 'Field value' },
-              { value: 'list', label: 'List rows' },
+              ...controllers.map((candidate) => ({
+                value: `field:${candidate.id}`,
+                label: candidate.label,
+              })),
+              ...lists.map((candidate) => ({
+                value: `list:${candidate.id}`,
+                label: `${candidate.label} (list input)`,
+              })),
             ]}
-            value={expression.kind}
-            onChange={(kind) =>
-              kind === 'field'
-                ? changeToField(controllers[0]?.id ?? null)
-                : (() => {
-                    const list = firstListClause();
-                    if (list) update({ ...list, not: expression.not });
-                  })()
-            }
+            value={selectedSource}
+            onChange={(source) => {
+              if (!source) return;
+              const [kind, id] = source.split(':');
+              if (kind === 'field') changeToField(id);
+              if (kind === 'list') changeToList(id);
+            }}
           />
           {expression.kind === 'field'
             ? (() => {
@@ -623,15 +718,6 @@ function VisibilityEditor({
                 if (!controller) return null;
                 return (
                   <>
-                    <Select
-                      label="Show when field"
-                      data={controllers.map((candidate) => ({
-                        value: candidate.id,
-                        label: candidate.label,
-                      }))}
-                      value={expression.controllerId}
-                      onChange={changeToField}
-                    />
                     <Select
                       label="Operator"
                       data={visibilityOperators(controller.kind)}
@@ -702,7 +788,8 @@ function VisibilityEditor({
                 ...current,
                 operands: current.operands.filter((_, itemIndex) => itemIndex !== index),
                 operators: current.operators.filter(
-                  (_, itemIndex) => itemIndex !== (index === 0 ? 0 : index - 1),
+                  (_, itemIndex) =>
+                    itemIndex !== (index === current.operands.length - 1 ? index - 1 : index),
                 ),
               }),
             current.operands.length > 1,
@@ -869,6 +956,10 @@ function VisibilitySettings(props: {
       </Button>
       <Modal opened={opened} onClose={() => setOpened(false)} title="Conditional logic" size="lg">
         <Stack>
+          <Text size="sm" c="dimmed">
+            Select the answer that controls this field. The available comparisons adapt to the
+            selected field, and list inputs can match any or every row.
+          </Text>
           <VisibilityEditor
             {...props}
             field={{ ...props.field, visibility: draft }}
@@ -1008,6 +1099,7 @@ export default function App() {
   const [message, setMessage] = useState<string | null>(null);
   const [mode, setMode] = useState<'build' | 'fill'>('build');
   const [fillData, setFillData] = useState<Record<string, unknown>>({});
+  const [commonFieldsOpened, setCommonFieldsOpened] = useState(true);
   const [advancedFieldsOpened, setAdvancedFieldsOpened] = useState(false);
   const [layoutOpened, setLayoutOpened] = useState(false);
 
@@ -1733,103 +1825,154 @@ export default function App() {
           )}
           {mode === 'build' && (
             <Paper p="md" mx="lg" mt="lg" withBorder>
-              <Group>
-                <Text fw={600}>Form layout</Text>
-                <Select
-                  aria-label="Form layout"
-                  data={[
-                    { value: 'flat', label: 'Flat form' },
-                    { value: 'stepper', label: 'Stepper' },
-                  ]}
-                  value={formLayout.kind}
-                  onChange={(kind) =>
+              <Stack gap="sm">
+                <Text fw={600}>How should people move through this form?</Text>
+                <Text size="sm" c="dimmed">
+                  Choose how its pages appear when someone fills it in.
+                </Text>
+                <Radio.Group
+                  value={
+                    formLayout.kind === 'flat'
+                      ? 'flat'
+                      : formLayout.navigation === 'sequential'
+                        ? 'sequential'
+                        : 'free'
+                  }
+                  onChange={(value) =>
                     setFormLayout(
-                      kind === 'stepper'
-                        ? { kind: 'stepper', navigation: 'sequential' }
-                        : { kind: 'flat' },
+                      value === 'flat'
+                        ? { kind: 'flat' }
+                        : { kind: 'stepper', navigation: value as 'sequential' | 'free' },
                     )
                   }
-                />
-                {formLayout.kind === 'stepper' && (
-                  <Select
-                    aria-label="Stepper navigation"
-                    data={[
-                      { value: 'sequential', label: 'Sequential with revisit' },
-                      { value: 'free', label: 'Free navigation' },
-                    ]}
-                    value={formLayout.navigation}
-                    onChange={(navigation) =>
-                      navigation &&
-                      setFormLayout({
-                        kind: 'stepper',
-                        navigation: navigation as 'sequential' | 'free',
-                      })
-                    }
-                  />
-                )}
-                <Button
-                  variant="light"
-                  color="red"
-                  disabled={pages.length === 1}
-                  onClick={removePage}
                 >
-                  Remove page
-                </Button>
-              </Group>
+                  <SimpleGrid cols={{ base: 1, sm: 3 }}>
+                    <Paper
+                      p="sm"
+                      withBorder
+                      className="layout-choice"
+                      onClick={() => setFormLayout({ kind: 'flat' })}
+                    >
+                      <Radio value="flat" label="All at once" />
+                      <Text size="xs" c="dimmed" mt={4}>
+                        Show every page in one form.
+                      </Text>
+                      <Box className="layout-skeleton layout-skeleton-flat" aria-hidden="true">
+                        <span />
+                        <span />
+                        <span />
+                      </Box>
+                    </Paper>
+                    <Paper
+                      p="sm"
+                      withBorder
+                      className="layout-choice"
+                      onClick={() => setFormLayout({ kind: 'stepper', navigation: 'sequential' })}
+                    >
+                      <Radio value="sequential" label="Step-by-step" />
+                      <Text size="xs" c="dimmed" mt={4}>
+                        Move forward one page at a time.
+                      </Text>
+                      <Box className="layout-skeleton" aria-hidden="true">
+                        <span />
+                        <span className="layout-skeleton-active" />
+                        <span />
+                      </Box>
+                    </Paper>
+                    <Paper
+                      p="sm"
+                      withBorder
+                      className="layout-choice"
+                      onClick={() => setFormLayout({ kind: 'stepper', navigation: 'free' })}
+                    >
+                      <Radio value="free" label="Free" />
+                      <Text size="xs" c="dimmed" mt={4}>
+                        Let people jump between pages.
+                      </Text>
+                      <Box className="layout-skeleton" aria-hidden="true">
+                        <span className="layout-skeleton-active" />
+                        <span className="layout-skeleton-active" />
+                        <span className="layout-skeleton-active" />
+                      </Box>
+                    </Paper>
+                  </SimpleGrid>
+                </Radio.Group>
+              </Stack>
             </Paper>
           )}
           {mode === 'build' ? (
             <>
               <Paper p="md" mx="lg" mt="lg" withBorder>
-                <Group>
-                  <Text fw={600}>Pages</Text>
-                  <Select
-                    aria-label="Active page"
-                    data={persistedPages.map((page, index) => ({
-                      value: String(index),
-                      label: page.title,
-                    }))}
-                    value={String(activePage)}
-                    onChange={(value) => {
-                      const next = Number(value);
-                      if (Number.isNaN(next) || next === activePage) return;
-                      setPages((current) =>
-                        current.map((page, index) =>
-                          index === activePage ? { ...page, fields } : page,
-                        ),
-                      );
-                      setFields(persistedPages[next].fields);
-                      setActivePage(next);
-                      setSelectedIndex(null);
-                      setSelectedChildIndex(null);
-                    }}
-                  />
-                  <TextInput
-                    label="Page title"
-                    value={persistedPages[activePage]?.title ?? ''}
-                    onChange={(event) => updatePageTitle(event.currentTarget.value)}
-                  />
-                  <Button onClick={addPage}>Add page</Button>
+                <Group justify="space-between" align="end" wrap="nowrap" className="page-controls">
+                  <Group align="end" wrap="nowrap">
+                    <Select
+                      label="Current page"
+                      data={persistedPages.map((page, index) => ({
+                        value: String(index),
+                        label: page.title,
+                      }))}
+                      value={String(activePage)}
+                      onChange={(value) => {
+                        const next = Number(value);
+                        if (Number.isNaN(next) || next === activePage) return;
+                        setPages((current) =>
+                          current.map((page, index) =>
+                            index === activePage ? { ...page, fields } : page,
+                          ),
+                        );
+                        setFields(persistedPages[next].fields);
+                        setActivePage(next);
+                        setSelectedIndex(null);
+                        setSelectedChildIndex(null);
+                      }}
+                    />
+                    <TextInput
+                      label="Page title"
+                      value={persistedPages[activePage]?.title ?? ''}
+                      onChange={(event) => updatePageTitle(event.currentTarget.value)}
+                    />
+                  </Group>
+                  <Group gap="xs" wrap="nowrap">
+                    <Button onClick={addPage}>Add page</Button>
+                    <Button
+                      variant="light"
+                      color="red"
+                      disabled={pages.length === 1}
+                      onClick={removePage}
+                    >
+                      Remove page
+                    </Button>
+                  </Group>
                 </Group>
               </Paper>
               <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="lg" p="lg" className="workspace">
                 <Paper p="md" withBorder>
-                  <Title order={4} mb="sm">
+                  <Button
+                    variant="subtle"
+                    fullWidth
+                    aria-expanded={commonFieldsOpened}
+                    onClick={() => setCommonFieldsOpened((opened) => !opened)}
+                  >
                     Common fields
-                  </Title>
-                  <Stack gap="xs">
-                    {commonInputKinds.map(({ kind, label }) => (
-                      <Button
-                        key={kind}
-                        variant="light"
-                        color="violet"
-                        onClick={() => addField(kind)}
-                        aria-label={`Add ${label.toLowerCase()}`}
-                      >
-                        + {label}
-                      </Button>
-                    ))}
-                  </Stack>
+                  </Button>
+                  {commonFieldsOpened && (
+                    <Stack gap="xs" mt="xs">
+                      <Text size="xs" c="dimmed">
+                        Start with the field that best matches the answer you need to collect.
+                      </Text>
+                      {commonInputKinds.map(({ kind, label }) => (
+                        <Button
+                          key={kind}
+                          variant="light"
+                          color="violet"
+                          onClick={() => addField(kind)}
+                          aria-label={`Add ${label.toLowerCase()}`}
+                        >
+                          + {label}
+                        </Button>
+                      ))}
+                    </Stack>
+                  )}
                   <Divider my="md" />
                   <Button
                     variant="subtle"
@@ -2296,6 +2439,7 @@ export default function App() {
                       )}
                       {(editable.kind === 'select' ||
                         editable.kind === 'radio' ||
+                        editable.kind === 'multiSelect' ||
                         editable.kind === 'autocomplete') && (
                         <Textarea
                           label="Options (one per line)"

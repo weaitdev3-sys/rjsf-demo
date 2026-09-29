@@ -30,6 +30,30 @@ body {
     top: 1rem;
   }
 }
+.layout-choice {
+  cursor: pointer;
+}
+.layout-skeleton {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+}
+.layout-skeleton span {
+  flex: 1;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--mantine-color-gray-3);
+}
+.layout-skeleton-flat {
+  display: grid;
+  gap: 0.25rem;
+}
+.layout-skeleton-flat span {
+  height: 0.25rem;
+}
+.layout-skeleton .layout-skeleton-active {
+  background: var(--mantine-color-violet-5);
+}
 .selected-field {
   border-color: var(--mantine-color-violet-5) !important;
   box-shadow: 0 0 0 2px var(--mantine-color-violet-1);

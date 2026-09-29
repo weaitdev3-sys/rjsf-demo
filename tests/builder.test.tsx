@@ -38,18 +38,48 @@ describe('form builder', () => {
     expect(screen.getByRole('button', { name: 'Remove page' })).toBeDisabled();
   });
 
+  it('labels the current page and keeps page actions together on the right', () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    expect(screen.getByRole('combobox', { name: 'Current page' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Pages' })).not.toBeInTheDocument();
+
+    const controls = document.querySelector('.page-controls');
+    expect(controls).toContainElement(screen.getByRole('button', { name: 'Add page' }));
+    expect(controls).toContainElement(screen.getByRole('button', { name: 'Remove page' }));
+  });
+
   it('renders stepper navigation for multi-page forms', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Form layout' }), {
-      target: { value: 'stepper' },
-    });
+    fireEvent.click(screen.getByRole('radio', { name: 'Step-by-step' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add page' }));
     fireEvent.click(screen.getByRole('button', { name: 'Preview & fill' }));
 
     expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument();
     expect(screen.getByText('Step 1 of 2')).toBeInTheDocument();
+  });
+
+  it('uses visual radio choices for the form layout and collapses common fields', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    const commonFields = screen.getByRole('button', { name: 'Common fields' });
+    expect(commonFields).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(commonFields);
+    expect(screen.queryByRole('button', { name: 'Add text field' })).not.toBeInTheDocument();
+    fireEvent.click(commonFields);
+
+    expect(screen.getByRole('radio', { name: 'All at once' })).toBeChecked();
+    fireEvent.click(screen.getByRole('radio', { name: 'Step-by-step' }));
+    expect(screen.getByRole('radio', { name: 'Step-by-step' })).toBeChecked();
+    fireEvent.click(screen.getByRole('radio', { name: 'Free' }));
+    expect(screen.getByRole('radio', { name: 'Free' })).toBeChecked();
+
+    fireEvent.click(screen.getByText('Move forward one page at a time.'));
+    expect(screen.getByRole('radio', { name: 'Step-by-step' })).toBeChecked();
   });
 
   it('groups less-common field types behind an expandable advanced palette', async () => {
@@ -63,6 +93,16 @@ describe('form builder', () => {
 
     expect(screen.getByRole('button', { name: 'Add multi-select' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add list input' })).toBeInTheDocument();
+  });
+
+  it('offers paragraph text without email or phone field options', () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    expect(screen.getByRole('button', { name: 'Add paragraph' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add long text' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add email' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add phone' })).not.toBeInTheDocument();
   });
 
   it('uses an explicit required field checkbox and opens the preview and fill mode', async () => {
@@ -84,7 +124,6 @@ describe('form builder', () => {
     render(<App />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Add text field' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add email' }));
     fireEvent.click(screen.getByRole('button', { name: 'Preview & fill' }));
 
     expect(screen.queryAllByRole('button', { name: 'Submit' })).toHaveLength(0);
@@ -162,6 +201,21 @@ describe('form builder', () => {
     expect(screen.getByText('Includes option')).toBeInTheDocument();
   });
 
+  it('edits the options for a multi-select field', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced fields' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add multi-select' }));
+    fireEvent.change(screen.getByLabelText('Options (one per line)'), {
+      target: { value: 'Plan management\nSupport coordination' },
+    });
+
+    expect(screen.getByLabelText('Options (one per line)')).toHaveValue(
+      'Plan management\nSupport coordination',
+    );
+  });
+
   it('adds a field from the palette and updates its visible label', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
@@ -179,11 +233,13 @@ describe('form builder', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Add radio' }));
     fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Contact method' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add phone' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add paragraph' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
     await screen.findByRole('dialog');
     expect(screen.getByRole('heading', { name: 'Conditional logic' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Condition type')).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Show when' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add nested group' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Apply conditional logic' })).toBeInTheDocument();
     expect(screen.getByLabelText('Negate this condition')).not.toBeChecked();
@@ -204,6 +260,28 @@ describe('form builder', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
     await screen.findByRole('dialog');
     expect(screen.getByRole('heading', { name: 'Conditional logic' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'List match' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Row match')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add nested row group' })).toBeInTheDocument();
+  });
+
+  it('keeps the preceding connector when removing a middle list-row condition', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced fields' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add list input' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: 'Add row condition' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add row condition' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Row connector 1' }));
+    fireEvent.click(screen.getByRole('option', { name: 'OR' }));
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove condition' })[2]);
+
+    expect(screen.getByRole('combobox', { name: 'Row connector 1' })).toHaveValue('OR');
   });
 
   it('opens conditional logic after another field saves a list condition', async () => {
@@ -252,9 +330,9 @@ describe('form builder', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Layout' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add container' }));
     expect(screen.getByText('Container fields')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Add email field' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add paragraph field' }));
 
-    expect(screen.getByText('Untitled Email')).toBeInTheDocument();
+    expect(screen.getByText('Untitled Paragraph')).toBeInTheDocument();
   });
 
   it('does not offer containers inside repeatable list items', async () => {
@@ -289,10 +367,10 @@ describe('form builder', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Add two-column' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field to left column' }));
     fireEvent.click(screen.getByRole('button', { name: '← Back to two-column layout' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add email to right column' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add paragraph to right column' }));
 
     expect(screen.getByText('Untitled Text field')).toBeInTheDocument();
-    expect(screen.getByText('Untitled Email')).toBeInTheDocument();
+    expect(screen.getByText('Untitled Paragraph')).toBeInTheDocument();
   });
 
   it('edits a field selected from a two-column layout', async () => {
@@ -394,7 +472,7 @@ describe('form builder', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add two-column' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field to left column' }));
     fireEvent.click(screen.getByRole('button', { name: '← Back to two-column layout' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add email to right column' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add paragraph to right column' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
     fireEvent.change(screen.getByLabelText('Field label'), {
       target: { value: 'Required after columns' },
@@ -405,7 +483,7 @@ describe('form builder', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Preview & fill' }));
 
     const left = screen.getByLabelText('Untitled Text field');
-    const right = screen.getByLabelText('Untitled Email');
+    const right = screen.getByLabelText('Untitled Paragraph');
     fireEvent.change(left, { target: { value: 'Left value' } });
     fireEvent.change(right, { target: { value: 'right@example.test' } });
     expect(left).toHaveValue('Left value');
