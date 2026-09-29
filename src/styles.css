@@ -69,6 +69,32 @@ body {
   gap: 0.75rem;
   margin-top: 0.75rem;
 }
+.logic-canvas {
+  border-left: 3px solid var(--mantine-color-violet-4);
+}
+.logic-connector {
+  display: flex;
+  flex-wrap: nowrap;
+  padding-left: 0.5rem;
+}
+.logic-connector > * {
+  flex: 0 1 10rem;
+  min-width: 0;
+}
+.logic-group {
+  border-left: 3px solid var(--mantine-color-violet-3);
+  margin-left: 0.5rem;
+}
+.logic-condition-sentence > :not(.logic-remove-button) {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.logic-condition-sentence {
+  flex-wrap: nowrap;
+}
+.logic-remove-button {
+  flex: 0 0 auto;
+}
 @media (max-width: 40rem) {
   .two-column-layout {
     grid-template-columns: 1fr;

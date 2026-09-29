@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ActionIcon,
   Alert,
   AppShell,
   Badge,
@@ -261,6 +262,8 @@ function ConditionValue({
   condition: { operator: VisibilityOperator; value?: string | number };
   onChange: (condition: { operator: VisibilityOperator; value?: string | number }) => void;
 }) {
+  if (controller.kind === 'checkbox')
+    return <TextInput aria-label="Value" value="Checked" readOnly disabled />;
   const needsValue = !['isBlank', 'isNotBlank', 'isChecked', 'isUnchecked'].includes(
     condition.operator,
   );
@@ -268,7 +271,7 @@ function ConditionValue({
   if (controller.options?.length)
     return (
       <Select
-        label="Comparison value"
+        aria-label="Value"
         data={controller.options}
         value={String(condition.value ?? '')}
         onChange={(value) => onChange({ ...condition, value: value ?? '' })}
@@ -277,7 +280,7 @@ function ConditionValue({
   if (controller.kind === 'number')
     return (
       <NumberInput
-        label="Comparison value"
+        aria-label="Value"
         value={typeof condition.value === 'number' ? condition.value : ''}
         onChange={(value) =>
           onChange({ ...condition, value: typeof value === 'number' ? value : 0 })
@@ -286,7 +289,7 @@ function ConditionValue({
     );
   return (
     <TextInput
-      label="Comparison value"
+      aria-label="Value"
       type={controller.kind === 'date' || controller.kind === 'time' ? controller.kind : 'text'}
       value={String(condition.value ?? '')}
       onChange={(event) => onChange({ ...condition, value: event.currentTarget.value })}
@@ -303,6 +306,8 @@ function VisibilityEditor({
   field: EditableField;
   onChange: (rule: VisibilityRule | undefined) => void;
 }) {
+  const [newConnector, setNewConnector] = useState<'and' | 'or'>('and');
+  const [newRuleNot, setNewRuleNot] = useState(false);
   const controllers = controllerFields(fields).filter(
     (candidate) =>
       candidate.id !== field.id && !createsVisibilityCycle(fields, field.id, candidate.id),
@@ -366,9 +371,134 @@ function VisibilityEditor({
           operands: rowGroup.clauses,
           operators: rowGroup.clauses.slice(1).map(() => rowGroup.combinator),
         };
+  const conditionSummary = (
+    condition: { operator: VisibilityOperator; value?: string | number },
+    source: EditableField | undefined,
+  ) => {
+    const comparison = source
+      ? visibilityOperators(source.kind).find((option) => option.value === condition.operator)
+          ?.label
+      : condition.operator;
+    const value =
+      condition.value === undefined || condition.value === '' ? '' : ` “${condition.value}”`;
+    return `${source?.label ?? 'an answer'} ${(comparison ?? condition.operator).toLowerCase()}${value}`;
+  };
+  const rowGroupSummary = (
+    current: ListRowVisibilityExpressionGroup,
+    rowFields: EditableField[],
+  ): string => {
+    const descriptions = current.operands.map((operand) => {
+      const description =
+        'fieldId' in operand
+          ? conditionSummary(
+              operand,
+              rowFields.find((candidate) => candidate.id === operand.fieldId),
+            )
+          : `(${rowGroupSummary(operand, rowFields)})`;
+      return operand.not ? `not (${description})` : description;
+    });
+    return descriptions
+      .slice(1)
+      .reduce(
+        (summary, description, index) =>
+          `(${summary} ${current.operators[index].toUpperCase()} ${description})`,
+        descriptions[0] ?? '',
+      );
+  };
+  const expressionSummary = (expression: VisibilityExpression): string => {
+    if (expression.kind === 'group') return `(${groupSummary(expression)})`;
+    if (expression.kind === 'field') {
+      const controller = controllers.find((candidate) => candidate.id === expression.controllerId);
+      const description = conditionSummary(expression, controller);
+      return expression.not ? `not (${description})` : description;
+    }
+    const list = lists.find((candidate) => candidate.id === expression.listId);
+    const rowFields = list?.children ?? [];
+    const match = expression.quantifier === 'all' ? 'every row in' : 'at least one row in';
+    const description = `${match} ${list?.label ?? 'the list'} matches (${rowGroupSummary(
+      normalizeRowGroup(expression.conditions),
+      rowFields,
+    )})`;
+    return expression.not ? `not (${description})` : description;
+  };
+  const groupSummary = (current: VisibilityExpressionGroup): string => {
+    const descriptions = current.operands.map(expressionSummary);
+    return descriptions
+      .slice(1)
+      .reduce(
+        (summary, description, index) =>
+          `(${summary} ${current.operators[index].toUpperCase()} ${description})`,
+        descriptions[0] ?? '',
+      );
+  };
+  const groupDescription = (operators: Array<'and' | 'or'>) => {
+    if (!operators.length) return 'This group has one condition.';
+    if (operators.every((operator) => operator === 'and'))
+      return 'All conditions in this group must match.';
+    if (operators.every((operator) => operator === 'or'))
+      return 'At least one condition in this group can match.';
+    return 'Mixed AND/OR group; conditions are checked left to right.';
+  };
+  const renderTruthSelector = (label: string, isNot: boolean, onChange: (not: boolean) => void) => (
+    <Select
+      aria-label={label}
+      data={[
+        { value: 'is', label: 'IS' },
+        { value: 'isNot', label: 'IS NOT' },
+      ]}
+      value={isNot ? 'isNot' : 'is'}
+      onChange={(value) => onChange(value === 'isNot')}
+    />
+  );
+  const renderRemoveAction = (
+    label: string,
+    onClick: () => void,
+    disabled: boolean,
+  ) => (
+    <ActionIcon
+      aria-label={label}
+      title={label}
+      className="logic-remove-button"
+      color="red"
+      variant="subtle"
+      size="sm"
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <span aria-hidden="true">×</span>
+    </ActionIcon>
+  );
+  const renderRuleConstructor = (
+    addCondition: () => void,
+    addGroup: () => void,
+    disabled: boolean,
+    conditionLabel = 'Add condition',
+    groupLabel = 'Add group',
+  ) => (
+    <Group gap="xs" align="center" className="logic-constructor">
+      <Select
+        aria-label="Join with"
+        data={[
+          { value: 'and', label: 'AND' },
+          { value: 'or', label: 'OR' },
+        ]}
+        value={newConnector}
+        onChange={(value) => value && setNewConnector(value as 'and' | 'or')}
+      />
+      {renderTruthSelector('New rule is', newRuleNot, setNewRuleNot)}
+      <Button size="xs" variant="light" disabled={disabled} onClick={addCondition}>
+        {conditionLabel}
+      </Button>
+      <Button size="xs" variant="light" disabled={disabled} onClick={addGroup}>
+        {groupLabel}
+      </Button>
+    </Group>
+  );
   const renderListClause = (
     clause: ListVisibilityClause,
     update: (next: VisibilityClause) => void,
+    remove: () => void,
+    canRemove: boolean,
   ) => {
     const list = lists.find((candidate) => candidate.id === clause.listId);
     const rowFields =
@@ -393,32 +523,12 @@ function VisibilityEditor({
     ): React.ReactNode => {
       if (!('fieldId' in expression))
         return (
-          <Paper p="sm" withBorder bg="gray.0">
+          <Paper p="sm" withBorder bg="gray.0" className="logic-group">
             <Group justify="space-between" mb="xs">
               <Text fw={600} size="sm">
-                Condition group
+                Grouped conditions
               </Text>
-              <Group gap="xs">
-                <Checkbox
-                  label="Negate this group"
-                  checked={Boolean(expression.not)}
-                  onChange={(event) =>
-                    updateRowExpression({
-                      ...expression,
-                      not: event.currentTarget.checked || undefined,
-                    })
-                  }
-                />
-                <Button
-                  size="xs"
-                  color="red"
-                  variant="subtle"
-                  disabled={!canRemove}
-                  onClick={remove}
-                >
-                  Remove group
-                </Button>
-              </Group>
+              {renderRemoveAction('Remove group', remove, !canRemove)}
             </Group>
             {renderRowGroup(expression, updateRowExpression)}
           </Paper>
@@ -432,52 +542,26 @@ function VisibilityEditor({
       };
       return (
         <Paper p="sm" withBorder>
-          <Stack gap="xs">
-            <Group justify="space-between">
-              <Text fw={600} size="sm">
-                Row condition
-              </Text>
-              <Button size="xs" color="red" variant="subtle" disabled={!canRemove} onClick={remove}>
-                Remove condition
-              </Button>
-            </Group>
-            <Checkbox
-              label="Negate this condition"
-              checked={Boolean(expression.not)}
-              onChange={(event) =>
-                updateRowExpression({
-                  ...expression,
-                  not: event.currentTarget.checked || undefined,
-                })
-              }
-            />
+          <Group align="flex-start" className="logic-condition-sentence">
             <Select
-              label="Row field"
-              data={rowFields.map((candidate) => ({ value: candidate.id, label: candidate.label }))}
+              aria-label="Field"
+              data={rowFields.map((candidate) => ({
+                value: candidate.id,
+                label: candidate.label,
+              }))}
               value={expression.fieldId}
               onChange={changeRowField}
             />
-            <Select
-              label="Operator"
-              data={visibilityOperators(rowField.kind)}
-              value={expression.operator}
-              onChange={(operator) =>
-                operator &&
-                updateRowExpression({
-                  ...expression,
-                  operator: operator as VisibilityOperator,
-                  ...(['isBlank', 'isNotBlank', 'isChecked', 'isUnchecked'].includes(operator)
-                    ? { value: undefined }
-                    : {}),
-                })
-              }
-            />
+            {renderTruthSelector('Field is', Boolean(expression.not), (not) =>
+              updateRowExpression({ ...expression, not: not || undefined }),
+            )}
             <ConditionValue
               controller={rowField}
               condition={expression}
               onChange={(next) => updateRowExpression({ ...expression, ...next })}
             />
-          </Stack>
+            {renderRemoveAction('Remove condition', remove, !canRemove)}
+          </Group>
         </Paper>
       );
     };
@@ -486,26 +570,45 @@ function VisibilityEditor({
       updateRowGroup: (next: ListRowVisibilityExpressionGroup) => void,
     ): React.ReactNode => (
       <Stack gap="xs">
+        <Text size="xs" c="dimmed">
+          {groupDescription(current.operators)}
+        </Text>
         {current.operands.map((operand, index) => (
           <Stack key={index} gap="xs">
-            {index > 0 && (
-              <Select
-                aria-label={`Row connector ${index}`}
-                data={[
-                  { value: 'and', label: 'AND' },
-                  { value: 'or', label: 'OR' },
-                ]}
-                value={current.operators[index - 1]}
-                onChange={(operator) =>
-                  operator &&
-                  updateRowGroup({
-                    ...current,
-                    operators: current.operators.map((item, itemIndex) =>
-                      itemIndex === index - 1 ? (operator as 'and' | 'or') : item,
-                    ),
-                  })
-                }
-              />
+            {(index > 0 || !('fieldId' in operand)) && (
+              <Group gap="xs" className="logic-connector">
+                {index > 0 && (
+                  <Select
+                    aria-label={`Row connector ${index}`}
+                    data={[
+                      { value: 'and', label: 'AND' },
+                      { value: 'or', label: 'OR' },
+                    ]}
+                    value={current.operators[index - 1]}
+                    onChange={(operator) =>
+                      operator &&
+                      updateRowGroup({
+                        ...current,
+                        operators: current.operators.map((item, itemIndex) =>
+                          itemIndex === index - 1 ? (operator as 'and' | 'or') : item,
+                        ),
+                      })
+                    }
+                  />
+                )}
+                {!('fieldId' in operand) &&
+                  renderTruthSelector(
+                    index === 0 ? 'Row group is' : `Row group ${index + 1} is`,
+                    Boolean(operand.not),
+                    (not) =>
+                      updateRowGroup({
+                        ...current,
+                        operands: current.operands.map((item, itemIndex) =>
+                          itemIndex === index ? { ...operand, not: not || undefined } : item,
+                        ),
+                      }),
+                  )}
+              </Group>
             )}
             {renderRowExpression(
               operand,
@@ -529,90 +632,90 @@ function VisibilityEditor({
             )}
           </Stack>
         ))}
-        <Group>
-          <Button
-            size="xs"
-            variant="light"
-            disabled={!rowFields.length}
-            onClick={() => {
-              const condition = defaultRowCondition();
-              if (!condition) return;
-              updateRowGroup({
-                ...current,
-                operands: [...current.operands, condition],
-                operators: [...current.operators, 'and'],
-              });
-            }}
-          >
-            Add row condition
-          </Button>
-          <Button
-            size="xs"
-            variant="light"
-            disabled={!rowFields.length}
-            onClick={() => {
-              const condition = defaultRowCondition();
-              if (!condition) return;
-              updateRowGroup({
-                ...current,
-                operands: [
-                  ...current.operands,
-                  { kind: 'group', operands: [condition], operators: [] },
-                ],
-                operators: [...current.operators, 'and'],
-              });
-            }}
-          >
-            Add nested row group
-          </Button>
-        </Group>
+        {renderRuleConstructor(
+          () => {
+            const condition = defaultRowCondition();
+            if (!condition) return;
+            updateRowGroup({
+              ...current,
+              operands: [...current.operands, { ...condition, not: newRuleNot || undefined }],
+              operators: [...current.operators, newConnector],
+            });
+          },
+          () => {
+            const condition = defaultRowCondition();
+            if (!condition) return;
+            updateRowGroup({
+              ...current,
+              operands: [
+                ...current.operands,
+                {
+                  kind: 'group',
+                  not: newRuleNot || undefined,
+                  operands: [condition],
+                  operators: [],
+                },
+              ],
+              operators: [...current.operators, newConnector],
+            });
+          },
+          !rowFields.length,
+          'Add row condition',
+          'Add row group',
+        )}
       </Stack>
     );
     return (
       <>
-        <Select
-          label="List input"
-          data={lists.map((candidate) => ({ value: candidate.id, label: candidate.label }))}
-          value={clause.listId}
-          onChange={(value) => {
-            const nextList = lists.find((candidate) => candidate.id === value);
-            const nextField = nextList?.children?.find((candidate) =>
-              visibilityControllerKinds.includes(candidate.kind),
-            );
-            if (!nextList || !nextField) return;
-            const operator = visibilityOperators(nextField.kind)[0].value;
-            update({
-              ...clause,
-              listId: nextList.id,
-              conditions: {
-                kind: 'group',
-                operands: [
-                  {
-                    fieldId: nextField.id,
-                    operator,
-                    ...(operator === 'isChecked' || operator === 'isUnchecked'
-                      ? {}
-                      : { value: nextField.options?.[0] ?? '' }),
-                  },
-                ],
-                operators: [],
-              },
-            });
-          }}
-        />
-        <Select
-          label="List match"
-          data={[
-            { value: 'any', label: 'ANY row' },
-            { value: 'all', label: 'ALL rows' },
-          ]}
-          value={clause.quantifier}
-          onChange={(quantifier) =>
-            quantifier && update({ ...clause, quantifier: quantifier as 'any' | 'all' })
-          }
-        />
+        <Group align="flex-start" className="logic-condition-sentence">
+          <Select
+            aria-label="Rows"
+            data={[
+              { value: 'any', label: 'ANY' },
+              { value: 'all', label: 'ALL' },
+            ]}
+            value={clause.quantifier}
+            onChange={(quantifier) =>
+              quantifier && update({ ...clause, quantifier: quantifier as 'any' | 'all' })
+            }
+          />
+          {renderTruthSelector('Rows are', Boolean(clause.not), (not) =>
+            update({ ...clause, not: not || undefined }),
+          )}
+          <Select
+            aria-label="List value"
+            data={lists.map((candidate) => ({ value: candidate.id, label: candidate.label }))}
+            value={clause.listId}
+            onChange={(value) => {
+              const nextList = lists.find((candidate) => candidate.id === value);
+              const nextField = nextList?.children?.find((candidate) =>
+                visibilityControllerKinds.includes(candidate.kind),
+              );
+              if (!nextList || !nextField) return;
+              const operator = visibilityOperators(nextField.kind)[0].value;
+              update({
+                ...clause,
+                listId: nextList.id,
+                conditions: {
+                  kind: 'group',
+                  operands: [
+                    {
+                      fieldId: nextField.id,
+                      operator,
+                      ...(operator === 'isChecked' || operator === 'isUnchecked'
+                        ? {}
+                        : { value: nextField.options?.[0] ?? '' }),
+                    },
+                  ],
+                  operators: [],
+                },
+              });
+            }}
+          />
+          {renderRemoveAction('Remove condition', remove, !canRemove)}
+        </Group>
         <Text size="sm" c="dimmed">
-          Combine row conditions with AND, OR, and nested groups.
+          Use AND when both row conditions must match, or OR when either can match.
         </Text>
         {renderRowGroup(normalizeRowGroup(clause.conditions), (conditions) =>
           update({ ...clause, conditions }),
@@ -628,23 +731,12 @@ function VisibilityEditor({
   ) => {
     if (expression.kind === 'group')
       return (
-        <Paper p="sm" withBorder bg="gray.0">
+        <Paper p="sm" withBorder bg="gray.0" className="logic-group">
           <Group justify="space-between" mb="xs">
             <Text fw={600} size="sm">
-              Nested group
+              Grouped conditions
             </Text>
-            <Group gap="xs">
-              <Checkbox
-                label="Negate this group"
-                checked={Boolean(expression.not)}
-                onChange={(event) =>
-                  update({ ...expression, not: event.currentTarget.checked || undefined })
-                }
-              />
-              <Button size="xs" color="red" variant="subtle" disabled={!canRemove} onClick={remove}>
-                Remove group
-              </Button>
-            </Group>
+            {renderRemoveAction('Remove group', remove, !canRemove)}
           </Group>
           {renderGroup(expression, update)}
         </Paper>
@@ -672,79 +764,52 @@ function VisibilityEditor({
       expression.kind === 'field'
         ? `field:${expression.controllerId}`
         : `list:${expression.listId}`;
+    const sourceSelect = (
+      <Select
+        aria-label="Field"
+        data={[
+          ...controllers.map((candidate) => ({
+            value: `field:${candidate.id}`,
+            label: candidate.label,
+          })),
+          ...lists.map((candidate) => ({
+            value: `list:${candidate.id}`,
+            label: `${candidate.label} (list input)`,
+          })),
+        ]}
+        value={selectedSource}
+        onChange={(source) => {
+          if (!source) return;
+          const [kind, id] = source.split(':');
+          if (kind === 'field') changeToField(id);
+          if (kind === 'list') changeToList(id);
+        }}
+      />
+    );
     return (
       <Paper p="sm" withBorder>
-        <Stack gap="xs">
-          <Group justify="space-between">
-            <Text fw={600} size="sm">
-              Condition
-            </Text>
-            <Button size="xs" color="red" variant="subtle" disabled={!canRemove} onClick={remove}>
-              Remove condition
-            </Button>
-          </Group>
-          <Checkbox
-            label="Negate this condition"
-            checked={Boolean(expression.not)}
-            onChange={(event) =>
-              update({ ...expression, not: event.currentTarget.checked || undefined })
-            }
-          />
-          <Select
-            label="Show when"
-            data={[
-              ...controllers.map((candidate) => ({
-                value: `field:${candidate.id}`,
-                label: candidate.label,
-              })),
-              ...lists.map((candidate) => ({
-                value: `list:${candidate.id}`,
-                label: `${candidate.label} (list input)`,
-              })),
-            ]}
-            value={selectedSource}
-            onChange={(source) => {
-              if (!source) return;
-              const [kind, id] = source.split(':');
-              if (kind === 'field') changeToField(id);
-              if (kind === 'list') changeToList(id);
-            }}
-          />
-          {expression.kind === 'field'
-            ? (() => {
-                const controller = controllers.find(
-                  (candidate) => candidate.id === expression.controllerId,
-                );
-                if (!controller) return null;
-                return (
-                  <>
-                    <Select
-                      label="Operator"
-                      data={visibilityOperators(controller.kind)}
-                      value={expression.operator}
-                      onChange={(operator) =>
-                        operator &&
-                        update({
-                          ...expression,
-                          operator: operator as VisibilityOperator,
-                          ...(['isBlank', 'isNotBlank', 'isChecked', 'isUnchecked'].includes(
-                            operator,
-                          )
-                            ? { value: undefined }
-                            : {}),
-                        })
-                      }
-                    />
-                    <ConditionValue
-                      controller={controller}
-                      condition={expression}
-                      onChange={(condition) => update({ ...expression, ...condition })}
-                    />
-                  </>
-                );
-              })()
-            : renderListClause(expression, update)}
-        </Stack>
+        {expression.kind === 'field'
+          ? (() => {
+              const controller = controllers.find(
+                (candidate) => candidate.id === expression.controllerId,
+              );
+              if (!controller) return null;
+              return (
+                <Group align="flex-start" className="logic-condition-sentence">
+                  {sourceSelect}
+                  {renderTruthSelector('Field is', Boolean(expression.not), (not) =>
+                    update({ ...expression, not: not || undefined }),
+                  )}
+                  <ConditionValue
+                    controller={controller}
+                    condition={expression}
+                    onChange={(condition) => update({ ...expression, ...condition })}
+                  />
+                  {renderRemoveAction('Remove condition', remove, !canRemove)}
+                </Group>
+              );
+            })()
+          : renderListClause(expression, update, remove, canRemove)}
       </Paper>
     );
   };
@@ -753,26 +818,45 @@ function VisibilityEditor({
     update: (next: VisibilityExpressionGroup) => void,
   ): React.ReactNode => (
     <Stack gap="xs">
+      <Text size="xs" c="dimmed">
+        {groupDescription(current.operators)}
+      </Text>
       {current.operands.map((operand, index) => (
         <Stack key={index} gap="xs">
-          {index > 0 && (
-            <Select
-              aria-label={`Connector ${index}`}
-              data={[
-                { value: 'and', label: 'AND' },
-                { value: 'or', label: 'OR' },
-              ]}
-              value={current.operators[index - 1]}
-              onChange={(operator) =>
-                operator &&
-                update({
-                  ...current,
-                  operators: current.operators.map((item, itemIndex) =>
-                    itemIndex === index - 1 ? (operator as 'and' | 'or') : item,
-                  ),
-                })
-              }
-            />
+          {(index > 0 || operand.kind === 'group') && (
+            <Group gap="xs" className="logic-connector">
+              {index > 0 && (
+                <Select
+                  aria-label={`Connector ${index}`}
+                  data={[
+                    { value: 'and', label: 'AND' },
+                    { value: 'or', label: 'OR' },
+                  ]}
+                  value={current.operators[index - 1]}
+                  onChange={(operator) =>
+                    operator &&
+                    update({
+                      ...current,
+                      operators: current.operators.map((item, itemIndex) =>
+                        itemIndex === index - 1 ? (operator as 'and' | 'or') : item,
+                      ),
+                    })
+                  }
+                />
+              )}
+              {operand.kind === 'group' &&
+                renderTruthSelector(
+                  index === 0 ? 'Group is' : `Group ${index + 1} is`,
+                  Boolean(operand.not),
+                  (not) =>
+                    update({
+                      ...current,
+                      operands: current.operands.map((item, itemIndex) =>
+                        itemIndex === index ? { ...operand, not: not || undefined } : item,
+                      ),
+                    }),
+                )}
+            </Group>
           )}
           {renderOperand(
             operand,
@@ -796,65 +880,41 @@ function VisibilityEditor({
           )}
         </Stack>
       ))}
-      <Group>
-        <Button
-          size="xs"
-          variant="light"
-          disabled={!controllers.length}
-          onClick={() => {
-            const clause = firstFieldClause();
-            if (clause)
-              update({
-                ...current,
-                operands: [...current.operands, clause],
-                operators: [...current.operators, 'and'],
-              });
-          }}
-        >
-          Add field condition
-        </Button>
-        <Button
-          size="xs"
-          variant="light"
-          disabled={!lists.length}
-          onClick={() => {
-            const clause = firstListClause();
-            if (clause)
-              update({
-                ...current,
-                operands: [...current.operands, clause],
-                operators: [...current.operators, 'and'],
-              });
-          }}
-        >
-          Add list condition
-        </Button>
-        <Button
-          size="xs"
-          variant="light"
-          disabled={!defaultExpression()}
-          onClick={() => {
-            const expression = defaultExpression();
-            if (expression)
-              update({
-                ...current,
-                operands: [
-                  ...current.operands,
-                  { kind: 'group', operands: [expression], operators: [] },
-                ],
-                operators: [...current.operators, 'and'],
-              });
-          }}
-        >
-          Add nested group
-        </Button>
-      </Group>
+      {renderRuleConstructor(
+        () => {
+          const expression = defaultExpression();
+          if (!expression) return;
+          update({
+            ...current,
+            operands: [...current.operands, { ...expression, not: newRuleNot || undefined }],
+            operators: [...current.operators, newConnector],
+          });
+        },
+        () => {
+          const expression = defaultExpression();
+          if (!expression) return;
+          update({
+            ...current,
+            operands: [
+              ...current.operands,
+              {
+                kind: 'group',
+                not: newRuleNot || undefined,
+                operands: [expression],
+                operators: [],
+              },
+            ],
+            operators: [...current.operators, newConnector],
+          });
+        },
+        !defaultExpression(),
+      )}
     </Stack>
   );
   return (
-    <>
+    <Stack gap="sm">
       <Select
-        label="Visibility"
+        label="Display this field"
         data={[
           { value: 'always', label: 'Always show' },
           ...(controllers.length || lists.length
@@ -871,8 +931,25 @@ function VisibilityEditor({
           }
         }}
       />
-      {group && renderGroup(group, updateExpression)}
-    </>
+      {group && (
+        <>
+          <Stack gap={2}>
+            <Text size="sm" c="dimmed">
+              AND combines conditions: every connected condition must match.
+            </Text>
+            <Text size="sm" c="dimmed">
+              OR means either connected condition can match.
+            </Text>
+          </Stack>
+          <Paper p="sm" withBorder className="logic-canvas">
+            {renderGroup(group, updateExpression)}
+          </Paper>
+          <Alert color="violet" variant="light" title="This field will appear when:">
+            {groupSummary(group)}
+          </Alert>
+        </>
+      )}
+    </Stack>
   );
 }
 
@@ -950,15 +1027,19 @@ function VisibilitySettings(props: {
   return (
     <>
       <Divider />
-      <Title order={5}>Visibility</Title>
+      <Title order={5}>Visibility rules</Title>
       <Button variant="light" onClick={beginEditing}>
-        {props.field.visibility ? 'Edit conditional logic' : 'Add conditional logic'}
+        {props.field.visibility ? 'Edit display rules' : 'Set display rules'}
       </Button>
-      <Modal opened={opened} onClose={() => setOpened(false)} title="Conditional logic" size="lg">
+      <Modal
+        opened={opened}
+        onClose={() => setOpened(false)}
+        title="When should this field appear?"
+        size="lg"
+      >
         <Stack>
           <Text size="sm" c="dimmed">
-            Select the answer that controls this field. The available comparisons adapt to the
-            selected field, and list inputs can match any or every row.
+            Choose the answer that controls when this field is shown.
           </Text>
           <VisibilityEditor
             {...props}

@@ -195,10 +195,12 @@ describe('form builder', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Layout' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add container' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Set display rules' }));
 
-    expect(await screen.findByRole('dialog', { name: 'Conditional logic' })).toBeInTheDocument();
-    expect(screen.getByText('Includes option')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('dialog', { name: 'When should this field appear?' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Field is' })).toHaveValue('IS');
   });
 
   it('edits the options for a multi-select field', async () => {
@@ -233,21 +235,81 @@ describe('form builder', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Add radio' }));
     fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Contact method' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add paragraph' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Set display rules' }));
     await screen.findByRole('dialog');
-    expect(screen.getByRole('heading', { name: 'Conditional logic' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'When should this field appear?' }),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText('Condition type')).not.toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Show when' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Add nested group' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Field' })).toHaveValue('Contact method');
+    expect(screen.getByRole('combobox', { name: 'Value' })).toHaveValue('Option 1');
+    expect(screen.getByRole('combobox', { name: 'Join with' })).toHaveValue('AND');
+    expect(screen.getByRole('combobox', { name: 'New rule is' })).toHaveValue('IS');
+    expect(screen.getByRole('button', { name: 'Add condition' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add group' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Add' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Show this field when')).not.toBeInTheDocument();
+    expect(screen.queryByText('AND / OR')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Apply conditional logic' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Negate this condition')).not.toBeChecked();
-    fireEvent.click(screen.getByRole('button', { name: 'Add nested group' }));
-    expect(screen.getByText('Nested group')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Field is' })).toHaveValue('IS');
+    fireEvent.click(screen.getByRole('button', { name: 'Add group' }));
+    expect(screen.getByText('Grouped conditions')).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Connector 1' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Group 2 is' })).toHaveValue('IS');
+    expect(screen.getByRole('button', { name: 'Remove group' })).toHaveTextContent('×');
+    expect(screen.queryByText('Remove group')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove condition' })[0]);
+    expect(screen.getByRole('combobox', { name: 'Group is' })).toHaveValue('IS');
+    expect(screen.getByRole('button', { name: 'Remove condition' })).toHaveTextContent('×');
+    expect(screen.queryByText('Remove condition')).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('button', { name: 'Apply conditional logic' }));
-    expect(screen.getByRole('button', { name: 'Edit conditional logic' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit display rules' })).toBeInTheDocument();
+  });
+
+  it('guides creators through conditional rules with an inline summary', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add radio' }));
+    fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Contact method' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add paragraph' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Set display rules' }));
+
+    expect(
+      await screen.findByRole('dialog', { name: 'When should this field appear?' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Choose the answer that controls when this field is shown.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Field' })).toBeInTheDocument();
+    expect(
+      screen.getByText('AND combines conditions: every connected condition must match.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/This field will appear when:/)).toBeInTheDocument();
+    expect(screen.getByText(/Contact method equals “Option 1”/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add condition' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Connector 1' }));
+    fireEvent.click(screen.getByRole('option', { name: 'OR' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add condition' }));
+
+    expect(
+      screen.getByText('Mixed AND/OR group; conditions are checked left to right.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /\(\(Contact method equals “Option 1” OR Contact method equals “Option 1”\) AND Contact method equals “Option 1”\)/,
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('combobox', { name: 'Field is' })[0]);
+    fireEvent.click(screen.getAllByText('IS NOT')[0]);
+    expect(screen.getAllByRole('combobox', { name: 'Field is' })[0]).toHaveValue('IS NOT');
+    expect(screen.getByText(/not \(Contact method equals “Option 1”\)/)).toBeInTheDocument();
   });
 
   it('offers ANY and ALL list-row visibility conditions', async () => {
@@ -257,12 +319,22 @@ describe('form builder', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Advanced fields' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add list input' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Set display rules' }));
     await screen.findByRole('dialog');
-    expect(screen.getByRole('heading', { name: 'Conditional logic' })).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'List match' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'When should this field appear?' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Rows' })).toHaveValue('ANY');
+    expect(screen.getByRole('combobox', { name: 'Rows are' })).toHaveValue('IS');
+    expect(screen.getByRole('combobox', { name: 'List value' })).toHaveValue('Untitled List input');
     expect(screen.queryByLabelText('Row match')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Add nested row group' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add row condition' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add row group' })).toBeInTheDocument();
+    expect(screen.getByText(/at least one row in Untitled List input matches/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Rows' }));
+    fireEvent.click(screen.getByText('ALL'));
+    expect(screen.getByText(/every row in Untitled List input matches/)).toBeInTheDocument();
   });
 
   it('keeps the preceding connector when removing a middle list-row condition', async () => {
@@ -272,7 +344,7 @@ describe('form builder', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Advanced fields' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add list input' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Set display rules' }));
     await screen.findByRole('dialog');
     fireEvent.click(screen.getByRole('button', { name: 'Add row condition' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add row condition' }));
@@ -291,12 +363,14 @@ describe('form builder', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Advanced fields' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add list input' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Set display rules' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Apply conditional logic' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add conditional logic' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Set display rules' }));
 
-    expect(await screen.findByRole('dialog', { name: 'Conditional logic' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('dialog', { name: 'When should this field appear?' }),
+    ).toBeInTheDocument();
   });
 
   it('suffixes a renamed field label when its generated key collides with a sibling', async () => {
