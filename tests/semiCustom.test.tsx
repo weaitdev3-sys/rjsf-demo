@@ -29,7 +29,10 @@ Object.defineProperty(document, 'fonts', {
   value: { addEventListener: vi.fn(), removeEventListener: vi.fn() },
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.history.pushState({}, '', '/');
+});
 
 describe('semi-custom care-plan workflow', () => {
   it('starts with the template structure overview and assigns every selected Per-SERV service', async () => {
@@ -69,6 +72,83 @@ describe('semi-custom care-plan workflow', () => {
 
     expect(await screen.findByRole('heading', { name: 'SERV Assignment' })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: /DOM-01/ })).toBeInTheDocument();
+  });
+
+  it('previews an assigned active subform using its SERV as the form heading', async () => {
+    window.history.pushState({}, '', '/semi/care-plan/edit/example-plan');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url) => {
+        if (url === '/api/semi/care-plans/example-plan') {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              id: 'example-plan',
+              name: 'Example plan',
+              structure: 'per-serv',
+              services: [
+                {
+                  category: 'Domestic Assistance',
+                  code: 'DOM-01',
+                  name: 'General Household Cleaning',
+                },
+              ],
+              assignments: [
+                {
+                  serviceCode: 'DOM-01',
+                  subform: {
+                    id: 'personal-care',
+                    name: 'Personal care',
+                    configuration: {
+                      schedule: { timeFormat: 'duration' },
+                      itemList: { columns: ['Task'] },
+                      sections: { careNeeds: true },
+                    },
+                  },
+                },
+              ],
+            }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => [
+            {
+              id: 'personal-care',
+              name: 'Personal care',
+              active: true,
+              configuration: {
+                schedule: { timeFormat: 'duration' },
+                itemList: { columns: ['Task'] },
+                sections: { careNeeds: true },
+              },
+            },
+          ],
+        });
+      }),
+    );
+
+    render(
+      <MantineProvider>
+        <CarePlanWorkspace />
+      </MantineProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /SERV Assignment/ }));
+    const previewButton = await screen.findByRole('button', {
+      name: /Preview subform for DOM-01/,
+    });
+    expect(previewButton).toBeEnabled();
+    fireEvent.click(previewButton);
+
+    const modal = await screen.findByRole('dialog');
+    expect(
+      within(modal).getByRole('heading', { name: /DOM-01.*General Household Cleaning/ }),
+    ).toBeInTheDocument();
+    expect(within(modal).getByLabelText('Duration (hours)')).toBeInTheDocument();
+    expect(within(modal).getByRole('button', { name: 'Add session' })).toBeDisabled();
+    expect(within(modal).getByRole('button', { name: 'Add item' })).toBeDisabled();
+    expect(within(modal).getByLabelText('Care Needs')).toBeInTheDocument();
   });
 
   it('includes SERV Info and SERV Assignment for Hybrid', async () => {
@@ -133,6 +213,16 @@ describe('semi-custom care-plan workflow', () => {
 
     expect(await screen.findByRole('heading', { name: 'Review & save' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View configuration JSON' })).toBeInTheDocument();
+  });
+
+  it('explains displayed-information selection in the Participant Details builder step', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<MantineProvider><CarePlanWorkspace /></MantineProvider>);
+
+    fireEvent.click(screen.getByRole('button', { name: /Participant Details/ }));
+
+    expect(await screen.findByRole('heading', { name: 'Participant Details' })).toBeInTheDocument();
+    expect(screen.getByText('Select displayed information')).toBeInTheDocument();
   });
 
   it('configures SERVs in a table with check-all controls', async () => {
@@ -290,6 +380,18 @@ describe('semi-custom care-plan workflow', () => {
     const emergencyPreview = within(screen.getByTestId('emergency-preview'));
     expect(emergencyPreview.getByLabelText('Emergency Contacts')).toBeInTheDocument();
     expect(screen.queryByTestId('support-preview')).not.toBeInTheDocument();
+  });
+
+  it('keeps Emergency Contacts as a required display field', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    render(<MantineProvider><CarePlanWorkspace /></MantineProvider>);
+
+    fireEvent.click(screen.getByRole('button', { name: /General Info/ }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Emergency' }));
+
+    expect(screen.getByRole('checkbox', { name: 'Emergency Contacts' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Emergency Contacts' })).toBeDisabled();
+    expect(within(screen.getByTestId('emergency-preview')).getByLabelText('Emergency Contacts')).toBeInTheDocument();
   });
 
   it('previews enabled shared SERV information components', async () => {

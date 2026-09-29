@@ -64,7 +64,9 @@
             "operator": "isChecked"
           }
         ],
-        "operators": ["or"]
+        "operators": [
+          "or"
+        ]
       }
     },
     {
@@ -86,7 +88,9 @@
             "operator": "isChecked"
           }
         ],
-        "operators": ["and"]
+        "operators": [
+          "and"
+        ]
       }
     },
     {
@@ -111,7 +115,9 @@
                 "operator": "isChecked"
               }
             ],
-            "operators": ["or"]
+            "operators": [
+              "or"
+            ]
           },
           {
             "kind": "group",
@@ -127,12 +133,25 @@
                 "operator": "isChecked"
               }
             ],
-            "operators": ["and"],
+            "operators": [
+              "and"
+            ],
             "not": true
           }
         ],
-        "operators": ["and"]
+        "operators": [
+          "and"
+        ]
       }
+    },
+    {
+      "id": "multiSelect-1790647930371-7",
+      "kind": "multiSelect",
+      "label": "Untitled Multi-select",
+      "options": [
+        "Option 1",
+        "Option 2"
+      ]
     }
   ],
   "schema": {
@@ -146,6 +165,18 @@
       "checkbox_b": {
         "type": "boolean",
         "title": "Checkbox B"
+      },
+      "untitled_multi_select": {
+        "type": "array",
+        "title": "Untitled Multi-select",
+        "items": {
+          "type": "string",
+          "enum": [
+            "Option 1",
+            "Option 2"
+          ]
+        },
+        "uniqueItems": true
       }
     }
   },
@@ -155,9 +186,175 @@
     },
     "checkbox_b": {
       "ui:widget": "checkbox"
+    },
+    "untitled_multi_select": {
+      "ui:widget": "checkboxes"
     }
   },
+  "pages": [
+    {
+      "id": "page-1",
+      "title": "Page 1",
+      "fields": [
+        {
+          "id": "checkbox-1790219477212-0",
+          "kind": "checkbox",
+          "label": "Checkbox A"
+        },
+        {
+          "id": "checkbox-1790219495677-1",
+          "kind": "checkbox",
+          "label": "Checkbox B"
+        },
+        {
+          "id": "textLayout-1790219510535-2",
+          "kind": "textLayout",
+          "label": "Untitled Text",
+          "content": "If A",
+          "visibility": {
+            "kind": "group",
+            "operands": [
+              {
+                "kind": "field",
+                "controllerId": "checkbox-1790219477212-0",
+                "operator": "isChecked"
+              }
+            ],
+            "operators": []
+          }
+        },
+        {
+          "id": "textLayout-1790219520870-3",
+          "kind": "textLayout",
+          "label": "Untitled Text",
+          "content": "If B",
+          "visibility": {
+            "kind": "group",
+            "operands": [
+              {
+                "kind": "field",
+                "controllerId": "checkbox-1790219495677-1",
+                "operator": "isChecked"
+              }
+            ],
+            "operators": []
+          }
+        },
+        {
+          "id": "textLayout-1790219525760-4",
+          "kind": "textLayout",
+          "label": "Untitled Text",
+          "content": "If A OR B",
+          "visibility": {
+            "kind": "group",
+            "operands": [
+              {
+                "kind": "field",
+                "controllerId": "checkbox-1790219477212-0",
+                "operator": "isChecked"
+              },
+              {
+                "kind": "field",
+                "controllerId": "checkbox-1790219495677-1",
+                "operator": "isChecked"
+              }
+            ],
+            "operators": [
+              "or"
+            ]
+          }
+        },
+        {
+          "id": "textLayout-1790219535128-5",
+          "kind": "textLayout",
+          "label": "Untitled Text",
+          "content": "If A AND B",
+          "visibility": {
+            "kind": "group",
+            "operands": [
+              {
+                "kind": "field",
+                "controllerId": "checkbox-1790219477212-0",
+                "operator": "isChecked"
+              },
+              {
+                "kind": "field",
+                "controllerId": "checkbox-1790219495677-1",
+                "operator": "isChecked"
+              }
+            ],
+            "operators": [
+              "and"
+            ]
+          }
+        },
+        {
+          "id": "textLayout-1790219542702-6",
+          "kind": "textLayout",
+          "label": "Untitled Text",
+          "content": "If A XOR B",
+          "visibility": {
+            "kind": "group",
+            "operands": [
+              {
+                "kind": "group",
+                "operands": [
+                  {
+                    "kind": "field",
+                    "controllerId": "checkbox-1790219477212-0",
+                    "operator": "isChecked"
+                  },
+                  {
+                    "kind": "field",
+                    "controllerId": "checkbox-1790219477212-0",
+                    "operator": "isChecked"
+                  }
+                ],
+                "operators": [
+                  "or"
+                ]
+              },
+              {
+                "kind": "group",
+                "operands": [
+                  {
+                    "kind": "field",
+                    "controllerId": "checkbox-1790219477212-0",
+                    "operator": "isChecked"
+                  },
+                  {
+                    "kind": "field",
+                    "controllerId": "checkbox-1790219495677-1",
+                    "operator": "isChecked"
+                  }
+                ],
+                "operators": [
+                  "and"
+                ],
+                "not": true
+              }
+            ],
+            "operators": [
+              "and"
+            ]
+          }
+        },
+        {
+          "id": "multiSelect-1790647930371-7",
+          "kind": "multiSelect",
+          "label": "Untitled Multi-select",
+          "options": [
+            "Option 1",
+            "Option 2"
+          ]
+        }
+      ]
+    }
+  ],
+  "formLayout": {
+    "kind": "flat"
+  },
   "id": "logic-test",
-  "createdAt": "2026-09-24T03:14:05.038Z",
-  "updatedAt": "2026-09-24T03:14:05.038Z"
+  "createdAt": "2026-09-29T02:12:28.304Z",
+  "updatedAt": "2026-09-29T02:12:28.304Z"
 }

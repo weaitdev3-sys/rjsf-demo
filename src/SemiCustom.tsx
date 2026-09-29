@@ -12,6 +12,7 @@ import {
   Group,
   JsonInput,
   Loader,
+  Modal,
   Paper,
   Select,
   SimpleGrid,
@@ -99,6 +100,16 @@ const generalFields = {
     'Remarks',
   ],
 };
+const requiredGeneralFields = {
+  emergency: ['Emergency Contacts'],
+};
+
+function includeRequiredGeneralFields(general: Record<string, string[]>) {
+  return {
+    ...general,
+    emergency: [...new Set([...requiredGeneralFields.emergency, ...(general.emergency ?? [])])],
+  };
+}
 const sectionLabels: Record<string, string> = {
   careNeeds: 'Care Needs',
   participantGoals: 'Participant Goals',
@@ -160,6 +171,9 @@ function SubformPreview({
                   <TextInput label="End time" placeholder="10:00" readOnly />
                 </Group>
               )}
+              <Button mt="xs" size="xs" disabled>
+                Add session
+              </Button>
             </Box>
           )}
           {itemList && (
@@ -196,6 +210,9 @@ function SubformPreview({
                   </tbody>
                 </table>
               </Box>
+              <Button mt="xs" size="xs" disabled>
+                Add item
+              </Button>
             </Box>
           )}
           {enabledSections.map(([key]) => (
@@ -1022,7 +1039,7 @@ export function CarePlanWorkspace() {
   const [general, setGeneral] = useState<Record<string, string[]>>({
     health: ['Weight / Height / BMI', 'Mobility', 'Allergies, Diet & Fluids'],
     support: [],
-    emergency: [],
+    emergency: requiredGeneralFields.emergency,
   });
   const [generalTab, setGeneralTab] = useState<keyof typeof generalFields>('health');
   const [servInfo, setServInfo] = useState<Record<string, boolean>>({
@@ -1037,6 +1054,7 @@ export function CarePlanWorkspace() {
   const [message, setMessage] = useState<string>();
   const [category, setCategory] = useState<string | null>(null);
   const [jsonOpened, setJsonOpened] = useState(false);
+  const [previewServiceCode, setPreviewServiceCode] = useState<string>();
 
   useEffect(() => {
     api<SemiSubformTemplate[]>('/api/semi/subforms?active=true')
@@ -1049,7 +1067,7 @@ export function CarePlanWorkspace() {
           setStructure(plan.structure);
           setSelectedCodes(plan.services.map((service) => service.code));
           setParticipant(plan.participantFields ?? []);
-          setGeneral(plan.generalInfo ?? {});
+          setGeneral(includeRequiredGeneralFields(plan.generalInfo ?? {}));
           setServInfo((plan.servInfo ?? {}) as Record<string, boolean>);
           setAssigned(
             Object.fromEntries(
@@ -1069,6 +1087,10 @@ export function CarePlanWorkspace() {
     : services;
   const needsAssignments = structure !== 'consolidated';
   const hasServInfo = structure !== 'per-serv';
+  const previewService = selectedServices.find((service) => service.code === previewServiceCode);
+  const previewSubform = subforms.find(
+    (template) => template.id === assigned[previewServiceCode ?? ''],
+  );
   const assignedCount = selectedServices.filter((service) =>
     Boolean(assigned[service.code]),
   ).length;
@@ -1102,7 +1124,7 @@ export function CarePlanWorkspace() {
       structure,
       services: selectedServices,
       participantFields: participant,
-      generalInfo: general,
+      generalInfo: includeRequiredGeneralFields(general),
       ...(hasServInfo ? { servInfo } : {}),
       ...(needsAssignments
         ? {
@@ -1345,6 +1367,7 @@ export function CarePlanWorkspace() {
     participant: (
       <Stack>
         <Title order={3}>Participant Details</Title>
+        <Text c="dimmed">Select displayed information</Text>
         <Checkbox.Group value={participant} onChange={setParticipant}>
           <Stack>
             {participantFields.map((field) => (
@@ -1377,11 +1400,18 @@ export function CarePlanWorkspace() {
                 <Tabs.Panel key={key} value={key} pt="sm">
                   <Checkbox.Group
                     value={general[key] ?? []}
-                    onChange={(values) => setGeneral({ ...general, [key]: values })}
+                    onChange={(values) =>
+                      setGeneral(includeRequiredGeneralFields({ ...general, [key]: values }))
+                    }
                   >
                     <Stack>
                       {fields.map((field) => (
-                        <Checkbox key={field} value={field} label={field} />
+                        <Checkbox
+                          key={field}
+                          value={field}
+                          label={field}
+                          disabled={field === 'Emergency Contacts'}
+                        />
                       ))}
                     </Stack>
                   </Checkbox.Group>
@@ -1456,14 +1486,24 @@ export function CarePlanWorkspace() {
         )}
         <Stack>
           {selectedServices.map((service) => (
-            <Select
-              key={service.code}
-              label={`${service.code} · ${service.name}`}
-              placeholder="Select active subform"
-              data={subforms.map((template) => ({ value: template.id!, label: template.name }))}
-              value={assigned[service.code] ?? null}
-              onChange={(value) => setAssigned({ ...assigned, [service.code]: value ?? '' })}
-            />
+            <Group key={service.code} align="end" wrap="nowrap">
+              <Select
+                flex={1}
+                label={`${service.code} · ${service.name}`}
+                placeholder="Select active subform"
+                data={subforms.map((template) => ({ value: template.id!, label: template.name }))}
+                value={assigned[service.code] ?? null}
+                onChange={(value) => setAssigned({ ...assigned, [service.code]: value ?? '' })}
+              />
+              <Button
+                variant="light"
+                disabled={!assigned[service.code]}
+                aria-label={`Preview subform for ${service.code}`}
+                onClick={() => setPreviewServiceCode(service.code)}
+              >
+                Preview
+              </Button>
+            </Group>
           ))}
           {!selectedServices.length && (
             <Text c="dimmed">
@@ -1553,6 +1593,23 @@ export function CarePlanWorkspace() {
           {message}
         </Alert>
       )}
+      <Modal
+        opened={Boolean(previewService && previewSubform)}
+        onClose={() => setPreviewServiceCode(undefined)}
+        title="Subform preview"
+        size="lg"
+      >
+        {previewService && previewSubform && (
+          <SubformPreview
+            name={`${previewService.code} · ${previewService.name}`}
+            schedule={Boolean(previewSubform.configuration.schedule)}
+            timeFormat={previewSubform.configuration.schedule?.timeFormat ?? 'start-end'}
+            itemList={Boolean(previewSubform.configuration.itemList)}
+            columns={previewSubform.configuration.itemList?.columns ?? []}
+            sections={previewSubform.configuration.sections ?? {}}
+          />
+        )}
+      </Modal>
     </Shell>
   );
 }
