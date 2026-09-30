@@ -235,7 +235,7 @@ describe('form builder', () => {
     expect(screen.getByText('Preferred name')).toBeInTheDocument();
   });
 
-  it('configures when a field is shown from another field value', async () => {
+  it('shows connectors only between existing visibility expressions', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<App />);
 
@@ -251,8 +251,8 @@ describe('form builder', () => {
     expect(screen.queryByLabelText('Condition type')).not.toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Field' })).toHaveValue('Contact method');
     expect(screen.getByRole('combobox', { name: 'Value' })).toHaveValue('Option 1');
-    expect(screen.getByRole('combobox', { name: 'Join with' })).toHaveValue('AND');
-    expect(screen.getByRole('combobox', { name: 'New rule is' })).toHaveValue('IS');
+    expect(screen.queryByRole('combobox', { name: 'Join with' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'New rule is' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add condition' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add group' })).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: 'Add' })).not.toBeInTheDocument();
@@ -334,9 +334,15 @@ describe('form builder', () => {
     expect(screen.getByRole('combobox', { name: 'Rows are' })).toHaveValue('IS');
     expect(screen.getByRole('combobox', { name: 'List value' })).toHaveValue('Untitled List input');
     expect(screen.queryByLabelText('Row match')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Join with' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'New rule is' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add row condition' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add row group' })).toBeInTheDocument();
     expect(screen.getByText(/at least one row in Untitled List input matches/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add row group' }));
+    expect(screen.getByRole('combobox', { name: 'Row connector 1' })).toHaveValue('AND');
+    expect(screen.getByRole('combobox', { name: 'Row group 2 is' })).toHaveValue('IS');
 
     fireEvent.click(screen.getByRole('combobox', { name: 'Rows' }));
     fireEvent.click(screen.getByText('ALL'));

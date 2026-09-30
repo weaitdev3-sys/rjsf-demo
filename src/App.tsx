@@ -307,8 +307,6 @@ function VisibilityEditor({
   field: EditableField;
   onChange: (rule: VisibilityRule | undefined) => void;
 }) {
-  const [newConnector, setNewConnector] = useState<'and' | 'or'>('and');
-  const [newRuleNot, setNewRuleNot] = useState(false);
   const controllers = controllerFields(fields).filter(
     (candidate) =>
       candidate.id !== field.id && !createsVisibilityCycle(fields, field.id, candidate.id),
@@ -477,16 +475,6 @@ function VisibilityEditor({
     groupLabel = 'Add group',
   ) => (
     <Group gap="xs" align="center" className="logic-constructor">
-      <Select
-        aria-label="Join with"
-        data={[
-          { value: 'and', label: 'AND' },
-          { value: 'or', label: 'OR' },
-        ]}
-        value={newConnector}
-        onChange={(value) => value && setNewConnector(value as 'and' | 'or')}
-      />
-      {renderTruthSelector('New rule is', newRuleNot, setNewRuleNot)}
       <Button size="xs" variant="light" disabled={disabled} onClick={addCondition}>
         {conditionLabel}
       </Button>
@@ -639,8 +627,8 @@ function VisibilityEditor({
             if (!condition) return;
             updateRowGroup({
               ...current,
-              operands: [...current.operands, { ...condition, not: newRuleNot || undefined }],
-              operators: [...current.operators, newConnector],
+              operands: [...current.operands, condition],
+              operators: [...current.operators, 'and'],
             });
           },
           () => {
@@ -652,12 +640,11 @@ function VisibilityEditor({
                 ...current.operands,
                 {
                   kind: 'group',
-                  not: newRuleNot || undefined,
                   operands: [condition],
                   operators: [],
                 },
               ],
-              operators: [...current.operators, newConnector],
+              operators: [...current.operators, 'and'],
             });
           },
           !rowFields.length,
@@ -887,8 +874,8 @@ function VisibilityEditor({
           if (!expression) return;
           update({
             ...current,
-            operands: [...current.operands, { ...expression, not: newRuleNot || undefined }],
-            operators: [...current.operators, newConnector],
+            operands: [...current.operands, expression],
+            operators: [...current.operators, 'and'],
           });
         },
         () => {
@@ -900,12 +887,11 @@ function VisibilityEditor({
               ...current.operands,
               {
                 kind: 'group',
-                not: newRuleNot || undefined,
                 operands: [expression],
                 operators: [],
               },
             ],
-            operators: [...current.operators, newConnector],
+            operators: [...current.operators, 'and'],
           });
         },
         !defaultExpression(),
