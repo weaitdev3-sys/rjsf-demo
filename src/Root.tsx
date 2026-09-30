@@ -1,4 +1,5 @@
 import { MantineProvider } from '@mantine/core';
+import { Notifications } from '@mantine/notifications';
 import App from './App';
 import { CarePlanLibrary, CarePlanWorkspace, Landing, SubformWorkspace } from './SemiCustom';
 import { ResponseLibrary } from './Responses';
@@ -22,6 +23,7 @@ export function Root() {
                 : Landing;
   return (
     <MantineProvider defaultColorScheme="light">
+      <Notifications position="top-right" limit={4} />
       <Page />
     </MantineProvider>
   );

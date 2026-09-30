@@ -4,6 +4,12 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/App';
 
+const { notify } = vi.hoisted(() => ({
+  notify: { success: vi.fn(), warning: vi.fn(), error: vi.fn() },
+}));
+
+vi.mock('../src/notifications', () => ({ notify }));
+
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation((query) => ({
@@ -153,7 +159,7 @@ describe('form builder', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add text field' }));
     fireEvent.change(screen.getByLabelText('Field label'), { target: { value: 'Name' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
-    await screen.findByText('Saved “Printable form”');
+    await waitFor(() => expect(notify.success).toHaveBeenCalledWith('Saved “Printable form”'));
     fireEvent.click(screen.getByRole('button', { name: 'Preview & fill' }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Ari' } });
 
@@ -553,7 +559,7 @@ describe('form builder', () => {
     });
     fireEvent.click(screen.getByRole('checkbox', { name: 'Required field' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
-    await screen.findByText('Saved “Layout form”');
+    await waitFor(() => expect(notify.success).toHaveBeenCalledWith('Saved “Layout form”'));
     fireEvent.click(screen.getByRole('button', { name: 'Preview & fill' }));
 
     const left = screen.getByLabelText('Untitled Text field');
@@ -564,7 +570,7 @@ describe('form builder', () => {
     expect(right).toHaveValue('right@example.test');
 
     fireEvent.click(screen.getByRole('button', { name: 'Save response' }));
-    expect(screen.getByText('Complete the required fields before saving.')).toBeInTheDocument();
+    expect(notify.warning).toHaveBeenCalledWith('Complete the required fields before saving.');
     expect(fetchMock).not.toHaveBeenCalledWith('/api/submissions', expect.anything());
 
     fireEvent.change(screen.getByLabelText(/Required after columns/), {

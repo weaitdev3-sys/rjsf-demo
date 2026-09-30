@@ -27,6 +27,7 @@ import {
 import Form from '@rjsf/mantine';
 import validator from '@rjsf/validator-ajv8';
 import type { RJSFSchema, UiSchema } from '@rjsf/utils';
+import { notify } from './notifications';
 import type {
   EditableField,
   FieldKind,
@@ -1177,7 +1178,6 @@ export default function App() {
   >(null);
   const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
   const [openedId, setOpenedId] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [mode, setMode] = useState<'build' | 'fill'>('build');
   const [fillData, setFillData] = useState<Record<string, unknown>>({});
   const [commonFieldsOpened, setCommonFieldsOpened] = useState(true);
@@ -1261,7 +1261,7 @@ export default function App() {
     try {
       setTemplates(await api<TemplateSummary[]>('/api/templates'));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not load templates');
+      notify.error(error instanceof Error ? error.message : 'Could not load templates');
     }
   };
   useEffect(() => {
@@ -1285,7 +1285,7 @@ export default function App() {
         setMode('fill');
       })
       .catch((error) =>
-        setMessage(error instanceof Error ? error.message : 'Could not open response'),
+        notify.error(error instanceof Error ? error.message : 'Could not open response'),
       );
   }, [responseId]);
   useEffect(() => {
@@ -1623,7 +1623,6 @@ export default function App() {
     setSelectedChildIndex(null);
     setFillData({});
     setMode('build');
-    setMessage(null);
   };
   const openTemplate = async (id: string) => {
     // Older saved templates predate pages and layouts; load them as one Page 1.
@@ -1644,9 +1643,8 @@ export default function App() {
       setSelectedChildIndex(null);
       setFillData({});
       setMode('build');
-      setMessage(null);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not open template');
+      notify.error(error instanceof Error ? error.message : 'Could not open template');
     }
   };
   const addPage = () => {
@@ -1685,7 +1683,7 @@ export default function App() {
   };
   const save = async () => {
     if (!buildResult.document) {
-      setMessage(buildResult.error ?? 'Fix the form definition before saving.');
+      notify.warning(buildResult.error ?? 'Fix the form definition before saving.');
       return;
     }
     try {
@@ -1694,16 +1692,16 @@ export default function App() {
         body: JSON.stringify({ ...buildResult.document, id: openedId ?? undefined }),
       });
       setOpenedId(saved.id);
-      setMessage(`Saved “${saved.name}”`);
+      notify.success(`Saved “${saved.name}”`);
       await refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not save template');
+      notify.error(error instanceof Error ? error.message : 'Could not save template');
     }
   };
   const submit = async ({ formData }: { formData?: unknown }) => {
     // Prune stale hidden values immediately before persistence as the final guard.
     if (!openedId) {
-      setMessage('Save this form before collecting responses.');
+      notify.warning('Save this form before collecting responses.');
       return;
     }
     try {
@@ -1726,9 +1724,9 @@ export default function App() {
             })
           ).id,
         );
-      setMessage(savedResponseId ? 'Saved response updated.' : 'Response saved.');
+      notify.success(savedResponseId ? 'Saved response updated.' : 'Response saved.');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not save response');
+      notify.error(error instanceof Error ? error.message : 'Could not save response');
     }
   };
   const print = async () => {
@@ -1737,12 +1735,12 @@ export default function App() {
       return;
     }
     if (!openedId) {
-      setMessage('Save this form before printing.');
+      notify.warning('Save this form before printing.');
       return;
     }
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      setMessage('Allow pop-ups to print this form.');
+      notify.warning('Allow pop-ups to print this form.');
       return;
     }
     try {
@@ -1760,7 +1758,7 @@ export default function App() {
       printWindow.print();
     } catch (error) {
       printWindow.close();
-      setMessage(error instanceof Error ? error.message : 'Could not create printable form');
+      notify.error(error instanceof Error ? error.message : 'Could not create printable form');
     }
   };
   const editorKinds = editingChild
@@ -1857,14 +1855,9 @@ export default function App() {
               </Group>
             </Group>
           </Box>
-          {(message || buildResult.error) && (
-            <Alert
-              color={buildResult.error ? 'red' : 'violet'}
-              m="lg"
-              withCloseButton={!buildResult.error}
-              onClose={() => setMessage(null)}
-            >
-              {buildResult.error ?? message}
+          {buildResult.error && (
+            <Alert color="red" m="lg">
+              {buildResult.error}
             </Alert>
           )}
           {mode === 'fill' && formLayout.kind === 'stepper' && (
@@ -2600,7 +2593,7 @@ export default function App() {
                         validator.validateFormData(fillData, fillResult.document!.schema).errors
                           .length
                       ) {
-                        setMessage('Complete the required fields before saving.');
+                        notify.warning('Complete the required fields before saving.');
                         return;
                       }
                       void submit({ formData: fillData });

@@ -36,6 +36,7 @@ import {
   type SemiCarePlanResponse,
   type SemiCarePlanResponseData,
 } from './domain/response';
+import { notify } from './notifications';
 
 const services: SemiService[] = [
   { category: 'Domestic Assistance', code: 'DOM-01', name: 'General Household Cleaning' },
@@ -552,16 +553,15 @@ export function SubformWorkspace() {
     participantGoals: true,
     remarks: true,
   });
-  const [message, setMessage] = useState<string>();
   const refresh = () =>
     api<SemiSubformTemplate[]>('/api/semi/subforms')
       .then(setTemplates)
-      .catch((error) => setMessage(error.message));
+      .catch((error) => notify.error(error.message));
   useEffect(() => {
     void refresh();
   }, []);
   const save = async () => {
-    if (!name.trim()) return setMessage('A subform name is required.');
+    if (!name.trim()) return notify.warning('A subform name is required.');
     const configuration: SemiSubformConfiguration = {
       ...(schedule ? { schedule: { timeFormat } } : {}),
       ...(itemList ? { itemList: { columns } } : {}),
@@ -576,10 +576,10 @@ export function SubformWorkspace() {
       setSchedule(false);
       setItemList(false);
       setSections({ careNeeds: true, participantGoals: true, remarks: true });
-      setMessage('Subform template saved.');
+      notify.success('Subform template saved.');
       refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not save subform.');
+      notify.error(error instanceof Error ? error.message : 'Could not save subform.');
     }
   };
   const toggle = async (template: SemiSubformTemplate) => {
@@ -590,7 +590,7 @@ export function SubformWorkspace() {
       });
       refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not update subform.');
+      notify.error(error instanceof Error ? error.message : 'Could not update subform.');
     }
   };
   return (
@@ -725,22 +725,16 @@ export function SubformWorkspace() {
           </Stack>
         </Grid.Col>
       </Grid>
-      {message && (
-        <Alert mt="lg" color="violet">
-          {message}
-        </Alert>
-      )}
     </Shell>
   );
 }
 
 export function CarePlanLibrary() {
   const [plans, setPlans] = useState<SemiCarePlanTemplate[]>([]);
-  const [message, setMessage] = useState<string>();
   useEffect(() => {
     api<SemiCarePlanTemplate[]>('/api/semi/care-plans')
       .then(setPlans)
-      .catch((error) => setMessage(error.message));
+      .catch((error) => notify.error(error.message));
   }, []);
   const fill = async (plan: SemiCarePlanTemplate) => {
     try {
@@ -754,7 +748,7 @@ export function CarePlanLibrary() {
       });
       navigate(`/semi/care-plan/response/${response.id}`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not create response.');
+      notify.error(error instanceof Error ? error.message : 'Could not create response.');
     }
   };
   return (
@@ -801,11 +795,6 @@ export function CarePlanLibrary() {
           </Paper>
         )}
       </Stack>
-      {message && (
-        <Alert mt="lg" color="violet">
-          {message}
-        </Alert>
-      )}
     </Shell>
   );
 }
@@ -844,9 +833,9 @@ function CarePlanResponseEditor({ responseId }: { responseId: string }) {
       });
       setResponse(saved);
       setFormData(saved.formData);
-      setMessage('Saved response updated.');
+      notify.success('Saved response updated.');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not save response.');
+      notify.error(error instanceof Error ? error.message : 'Could not save response.');
     }
   };
   const template = response.templateSnapshot;
@@ -1018,11 +1007,6 @@ function CarePlanResponseEditor({ responseId }: { responseId: string }) {
           );
         })}
       </Stack>
-      {message && (
-        <Alert mt="lg" color="violet">
-          {message}
-        </Alert>
-      )}
     </Shell>
   );
 }
@@ -1051,7 +1035,6 @@ export function CarePlanWorkspace() {
   });
   const [assigned, setAssigned] = useState<Record<string, string>>({});
   const [activeStep, setActiveStep] = useState('structure');
-  const [message, setMessage] = useState<string>();
   const [category, setCategory] = useState<string | null>(null);
   const [jsonOpened, setJsonOpened] = useState(false);
   const [previewServiceCode, setPreviewServiceCode] = useState<string>();
@@ -1059,7 +1042,7 @@ export function CarePlanWorkspace() {
   useEffect(() => {
     api<SemiSubformTemplate[]>('/api/semi/subforms?active=true')
       .then(setSubforms)
-      .catch((error) => setMessage(error.message));
+      .catch((error) => notify.error(error.message));
     if (editId)
       api<SemiCarePlanTemplate>(`/api/semi/care-plans/${editId}`)
         .then((plan) => {
@@ -1078,7 +1061,7 @@ export function CarePlanWorkspace() {
             ),
           );
         })
-        .catch((error) => setMessage(error.message));
+        .catch((error) => notify.error(error.message));
   }, [editId]);
 
   const selectedServices = services.filter((service) => selectedCodes.includes(service.code));
@@ -1166,15 +1149,15 @@ export function CarePlanWorkspace() {
   };
   const save = async () => {
     if (needsAssignments && selectedServices.some((service) => !assigned[service.code]))
-      return setMessage('Assign an active subform to every selected SERV.');
+      return notify.warning('Assign an active subform to every selected SERV.');
     try {
       const saved = await api<SemiCarePlanTemplate>('/api/semi/care-plans', {
         method: 'POST',
         body: JSON.stringify(carePlan),
       });
-      setMessage(`Saved “${saved.name}” as self-contained JSON.`);
+      notify.success(`Saved “${saved.name}” as self-contained JSON.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not save care plan.');
+      notify.error(error instanceof Error ? error.message : 'Could not save care plan.');
     }
   };
   const structureOptions = [
@@ -1588,11 +1571,6 @@ export function CarePlanWorkspace() {
           </Stack>
         </Grid.Col>
       </Grid>
-      {message && (
-        <Alert mt="lg" color="violet">
-          {message}
-        </Alert>
-      )}
       <Modal
         opened={Boolean(previewService && previewSubform)}
         onClose={() => setPreviewServiceCode(undefined)}

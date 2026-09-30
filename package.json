@@ -16,6 +16,7 @@
     "@mantine/core": "^9.0.0",
     "@mantine/dates": "^9.0.0",
     "@mantine/hooks": "^9.0.0",
+    "@mantine/notifications": "^9.6.2",
     "@rjsf/core": "^6.10.1",
     "@rjsf/mantine": "^6.10.1",
     "@rjsf/utils": "^6.10.1",
