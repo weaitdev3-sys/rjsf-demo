@@ -1070,6 +1070,9 @@ export function CarePlanWorkspace() {
     : services;
   const needsAssignments = structure !== 'consolidated';
   const hasServInfo = structure !== 'per-serv';
+  const activeSubformAvailability = subforms.length
+    ? `${subforms.length} active subform${subforms.length === 1 ? '' : 's'} available for assignment.`
+    : 'No active subforms are available for assignment.';
   const previewService = selectedServices.find((service) => service.code === previewServiceCode);
   const previewSubform = subforms.find(
     (template) => template.id === assigned[previewServiceCode ?? ''],
@@ -1264,6 +1267,11 @@ export function CarePlanWorkspace() {
             );
           })}
         </SimpleGrid>
+        {needsAssignments && (
+          <Text size="sm" c="violet.8" fw={500}>
+            {`Please review the available SERV subforms before continuing. ${activeSubformAvailability}`}
+          </Text>
+        )}
       </Stack>
     ),
     services: (
@@ -1529,16 +1537,6 @@ export function CarePlanWorkspace() {
 
   return (
     <Shell title="Semi-custom care-plan template">
-      <Alert color="blue" title="Authoring workflow" mb="lg">
-        {workflowGuidance}
-      </Alert>
-      {needsAssignments && (
-        <Alert color={subforms.length ? 'blue' : 'yellow'} mb="lg">
-          {subforms.length
-            ? `${subforms.length} active subform${subforms.length === 1 ? '' : 's'} available for assignment.`
-            : 'Create or activate a subform before assigning selected SERVs.'}
-        </Alert>
-      )}
       <Grid gap="xl">
         <Grid.Col span={{ base: 12, lg: 3 }}>
           <Stepper

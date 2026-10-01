@@ -56,6 +56,14 @@ describe('semi-custom care-plan workflow', () => {
     expect(screen.getByText('Per-SERV')).toBeInTheDocument();
     expect(screen.getByText('Consolidated')).toBeInTheDocument();
     expect(screen.getByText('Hybrid')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Please review the available SERV subforms before continuing.'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'Create active subforms, choose a care-plan structure, select SERVs, assign subforms when required, then review and save.',
+      ),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /Per-SERV/ })).toHaveAttribute(
       'aria-checked',
       'false',
@@ -64,6 +72,22 @@ describe('semi-custom care-plan workflow', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /Per-SERV/ }));
     expect(screen.getByRole('radio', { name: /Per-SERV/ })).toHaveAttribute('aria-checked', 'true');
+    expect(
+      await screen.findByText(
+        'Please review the available SERV subforms before continuing. 1 active subform available for assignment.',
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: /Consolidated/ }));
+    expect(
+      screen.queryByText('Please review the available SERV subforms before continuing.'),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: /Hybrid/ }));
+    expect(
+      screen.getByText(
+        'Please review the available SERV subforms before continuing. 1 active subform available for assignment.',
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: /Per-SERV/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.click(screen.getByRole('checkbox', { name: /DOM-01/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
